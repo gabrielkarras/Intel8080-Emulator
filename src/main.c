@@ -9,7 +9,7 @@ typedef struct ConditionFlags {
   uint8_t p:1; // Parity condtion bit
   uint8_t cy:1; // Carry condtion bit
   uint8_t ac:1; // Auxiliary carry condtion bit
-  uint8_t pad:1; // Padding bits
+  uint8_t pad:3; // Padding bits
 } ConditionFlags;
 
 typedef struct States {
@@ -20,7 +20,7 @@ typedef struct States {
   uint8_t e; // Register E
   uint8_t h; // Register H(register pair HL)
   uint8_t l; // Register L
-  uint16_t sp; // STack pointer
+  uint16_t sp; // Stack pointer
   uint16_t pc; // Program counter
   uint8_t *memory;
   struct ConditionFlags cc;

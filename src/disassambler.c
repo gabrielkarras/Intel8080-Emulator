@@ -1,11 +1,22 @@
+/*
+  Author: Gabriel Karras
+  Date: 08/06/2020
+  License: DOWHATEVERYOUWANT
+  Contact: gavrilkarras@hotmail.com
+
+  Reads the complete Space Invader ROM and disassembles
+  it into Intel8080 assembly instructions
+*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
 
+/* file name for Space Invaders ROM */
 #define FILE_NAME "invaders"
 
 
+/* Function declaration*/
 int Disassembler(uint8_t *codebuffer, int pc);
 
 
@@ -41,15 +52,16 @@ int main(int argc, char **argv){
 
 
 /*
-  Reads machine code and dissables it to 8080 assembly code
-
-  input:
-  codebuffer points to the 8080 assembly codebuffer
-  pc is the current program counter
-
-  output:
-  returns the number of bytes of the OpCode
-*/
+ * Function: Disassembler
+ * ----------------------
+ *  Reads machine code and disassembles it to 8080 assembly instruction code
+ *
+ *  codebuffer: pointer to the 8080 assembly ROM from a memory buffer
+ *  pc: the current program counter
+ *
+ *  returns: returns the number of bytes
+ *           required from the OpCode(to increment PC)
+ */
 int Disassembler(uint8_t *codebuffer, int pc)
 {
   uint8_t *code = &codebuffer[pc];

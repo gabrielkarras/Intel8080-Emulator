@@ -567,12 +567,73 @@ int Emulator(States *state)
     case 0x02: IncompleteInstruction(state); break;
     case 0x03: IncompleteInstruction(state); break;
     case 0x04: IncompleteInstruction(state); break;
+    case 0x05: //DCR B
+        {
+          uint8_t answer = state->b - 1;
+          state->cc.z = ((answer & 0xff) == 0);// If result is zero, set flag
+          state->cc.s = ((answer & 0x80) != 0);// If bit 7 is set, set sign flag
+          state->cc.p = Parity8b(answer);// Parity flag is set if even
+          state->b = answer;
+        } break;
+    case 0x06: // MVI B,D8
+               state->b = opcode[1];
+               break;
+    case 0x07: IncompleteInstruction(state); break;
+    case 0x08: IncompleteInstruction(state); break;
+    case 0x09: // DAD B
+        {
+          uint16_t rp = ((state->b)<< 8) | (state->c); // set B to MSByte
+          uint16_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
+          uint16_t answer = hl + rp; // Add HL + BC
+          state->cc.cy = (answer > 0xff);
+          /* move MSByte to LSByte and clear upper half*/
+          state->h = ( (answer>>8) & 0xff);
+          state->l = (answer & 0xff); // Clear upper half
+        } break;
+    case 0x0a: IncompleteInstruction(state); break;
+    case 0x0b: IncompleteInstruction(state); break;
+    case 0x0c: IncompleteInstruction(state); break;
+    case 0x0d: // DCR C
+        {
+          uint8_t answer = state->c - 1;
+          state->cc.z = ((answer & 0xff) == 0);
+          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.p = Parity8b(answer);
+          state->c = answer;
+        } break;
+    case 0x0e: // MVI C,D8
+               state->c = opcode[1];
+               break;
     case 0x0f: // RRC
         {
           uint8_t x = state->a;
           state->a = ((x & 1) << 7) | (x >> 1);
           state->cc.cy = (1 == (x&1));
         } break;
+    case 0x10: IncompleteInstruction(state); break;
+    case 0x11: // LXI D,D16
+    case 0x12: IncompleteInstruction(state); break;
+    case 0x13: // INX D
+    case 0x14: IncompleteInstruction(state); break;
+    case 0x15: IncompleteInstruction(state); break;
+    case 0x16: IncompleteInstruction(state); break;
+    case 0x17: IncompleteInstruction(state); break;
+    case 0x18: IncompleteInstruction(state); break;
+    case 0x19: // DAD D
+        {
+          uint16_t rp = ((state->d)<< 8) | (state->e); // set D to MSByte
+          uint16_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
+          uint16_t answer = hl + rp; // Add HL + DE
+          state->cc.cy = (answer > 0xff);
+          /* move MSByte to LSByte and clear upper half*/
+          state->h = ( (answer>>8) & 0xff);
+          state->l = (answer & 0xff); // Clear upper half
+        } break;
+    case 0x1a: // LDAX D
+    case 0x1b: IncompleteInstruction(state); break;
+    case 0x1c: IncompleteInstruction(state); break;
+    case 0x1d: IncompleteInstruction(state); break;
+    case 0x1e: IncompleteInstruction(state); break;
     case 0x1f: // RAR
         {
           uint8_t x = state->a;
@@ -594,10 +655,10 @@ int Emulator(States *state)
     case 0x80: // ADD B
         {
           uint16_t answer = (uint16_t)state->a + (uint16_t)state->b;
-          state->cc.z = ((answer & 0xff) == 0);// If result is zero, set flag
-          state->cc.s = ((answer & 0x80) != 0);// If bit 7 is set, set sign flag
-          state->cc.cy = (answer > 0xff);// Set carry flag if exceeds 2 bytes
-          state->cc.p = Parity16b(answer & 0xff);// Parity flag is set if even
+          state->cc.z = ((answer & 0xff) == 0);
+          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.cy = (answer > 0xff);
+          state->cc.p = Parity16b(answer & 0xff);
           state->a = answer & 0xff;
         } break;
     case 0x81: // ADD C
@@ -643,7 +704,7 @@ int Emulator(States *state)
           state->memory[state->sp-2] = state->c;
           state->sp = state->sp - 2;
         } break;
-    case 0xc6: // ADI byte
+    case 0xc6: // ADI D8
         {
           uint16_t answer = (uint16_t)state->a + (uint16_t)opcode[1];
           state->cc.z = ((answer & 0xff) == 0);
@@ -666,7 +727,7 @@ int Emulator(States *state)
           state->sp = state->sp - 2;
           state->pc = (opcode[2]<<8) | opcode[1];
         } break;
-    case 0xe6: // ANI 1 byte
+    case 0xe6: // ANI D8
         {
           uint8_t x = state->a & opcode[1];
           state->cc.z = (x == 0);

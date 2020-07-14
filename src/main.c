@@ -346,72 +346,72 @@ int Disassembler(uint8_t *codebuffer, int pc)
     case 0x7b: printf("MOV A,E"); break;
     case 0x7c: printf("MOV A,H"); break;
     case 0x7d: printf("MOV A,L"); break;
-    case 0x7e:	printf("MOV A,M"); break;
-    case 0x7f:	printf("MOV A,A"); break;
-    case 0x80:	printf("ADD B"); break;
-    case 0x81:	printf("ADD C"); break;
-    case 0x82:	printf("ADD D"); break;
-    case 0x83:	printf("ADD E"); break;
-    case 0x84:	printf("ADD H"); break;
-    case 0x85:	printf("ADD L"); break;
-    case 0x86:	printf("ADD M"); break;
-    case 0x87:	printf("ADD A"); break;
-    case 0x88:	printf("ADC B"); break;
-    case 0x89:	printf("ADC C"); break;
-    case 0x8a:	printf("ADC D"); break;
-    case 0x8b:	printf("ADC E"); break;
-    case 0x8c:	printf("ADC H"); break;
-    case 0x8d:	printf("ADC L"); break;
-    case 0x8e:	printf("ADC M"); break;
-    case 0x8f:	printf("ADC A"); break;
-    case 0x90:	printf("SUB B"); break;
-    case 0x91:	printf("SUB C"); break;
-    case 0x92:	printf("SUB D"); break;
-    case 0x93:	printf("SUB E"); break;
-    case 0x94:	printf("SUB H"); break;
-    case 0x95:	printf("SUB L"); break;
-    case 0x96:	printf("SUB M"); break;
-    case 0x97:	printf("SUB A"); break;
-    case 0x98:	printf("SBB B"); break;
-    case 0x99:	printf("SBB C"); break;
-    case 0x9a:	printf("SBB D"); break;
-    case 0x9b:	printf("SBB E"); break;
-    case 0x9c:	printf("SBB H"); break;
-    case 0x9d:	printf("SBB L"); break;
-    case 0x9e:	printf("SBB M"); break;
-    case 0x9f:	printf("SBB A"); break;
-    case 0xa0:	printf("ANA B"); break;
-    case 0xa1:	printf("ANA C"); break;
-    case 0xa2:	printf("ANA D"); break;
-    case 0xa3:	printf("ANA E"); break;
-    case 0xa4:	printf("ANA H"); break;
-    case 0xa5:	printf("ANA L"); break;
-    case 0xa6:	printf("ANA M"); break;
-    case 0xa7:	printf("ANA A"); break;
-    case 0xa8:	printf("XRA B"); break;
-    case 0xa9:	printf("XRA C"); break;
-    case 0xaa:	printf("XRA D"); break;
-    case 0xab:	printf("XRA E"); break;
-    case 0xac:	printf("XRA H"); break;
-    case 0xad:	printf("XRA L"); break;
-    case 0xae:	printf("XRA M"); break;
-    case 0xaf:	printf("XRA A"); break;
-    case 0xb0:	printf("ORA B"); break;
-    case 0xb1:	printf("ORA C"); break;
-    case 0xb2:	printf("ORA D"); break;
-    case 0xb3:	printf("ORA E"); break;
-    case 0xb4:	printf("ORA H"); break;
-    case 0xb5:	printf("ORA L"); break;
-    case 0xb6:	printf("ORA M"); break;
-    case 0xb7:	printf("ORA A"); break;
-    case 0xb8:	printf("CMP B"); break;
-    case 0xb9:	printf("CMP C"); break;
-    case 0xba:	printf("CMP D"); break;
-    case 0xbb:	printf("CMP E"); break;
-    case 0xbc:	printf("CMP H"); break;
-    case 0xbd:	printf("CMP L"); break;
-    case 0xbe:	printf("CMP M"); break;
-    case 0xbf:	printf("CMP A"); break;
+    case 0x7e: printf("MOV A,M"); break;
+    case 0x7f: printf("MOV A,A"); break;
+    case 0x80: printf("ADD B"); break;
+    case 0x81: printf("ADD C"); break;
+    case 0x82: printf("ADD D"); break;
+    case 0x83: printf("ADD E"); break;
+    case 0x84: printf("ADD H"); break;
+    case 0x85: printf("ADD L"); break;
+    case 0x86: printf("ADD M"); break;
+    case 0x87: printf("ADD A"); break;
+    case 0x88: printf("ADC B"); break;
+    case 0x89: printf("ADC C"); break;
+    case 0x8a: printf("ADC D"); break;
+    case 0x8b: printf("ADC E"); break;
+    case 0x8c: printf("ADC H"); break;
+    case 0x8d: printf("ADC L"); break;
+    case 0x8e: printf("ADC M"); break;
+    case 0x8f: printf("ADC A"); break;
+    case 0x90: printf("SUB B"); break;
+    case 0x91: printf("SUB C"); break;
+    case 0x92: printf("SUB D"); break;
+    case 0x93: printf("SUB E"); break;
+    case 0x94: printf("SUB H"); break;
+    case 0x95: printf("SUB L"); break;
+    case 0x96: printf("SUB M"); break;
+    case 0x97: printf("SUB A"); break;
+    case 0x98: printf("SBB B"); break;
+    case 0x99: printf("SBB C"); break;
+    case 0x9a: printf("SBB D"); break;
+    case 0x9b: printf("SBB E"); break;
+    case 0x9c: printf("SBB H"); break;
+    case 0x9d: printf("SBB L"); break;
+    case 0x9e: printf("SBB M"); break;
+    case 0x9f: printf("SBB A"); break;
+    case 0xa0: printf("ANA B"); break;
+    case 0xa1: printf("ANA C"); break;
+    case 0xa2: printf("ANA D"); break;
+    case 0xa3: printf("ANA E"); break;
+    case 0xa4: printf("ANA H"); break;
+    case 0xa5: printf("ANA L"); break;
+    case 0xa6: printf("ANA M"); break;
+    case 0xa7: printf("ANA A"); break;
+    case 0xa8: printf("XRA B"); break;
+    case 0xa9: printf("XRA C"); break;
+    case 0xaa: printf("XRA D"); break;
+    case 0xab: printf("XRA E"); break;
+    case 0xac: printf("XRA H"); break;
+    case 0xad: printf("XRA L"); break;
+    case 0xae: printf("XRA M"); break;
+    case 0xaf: printf("XRA A"); break;
+    case 0xb0: printf("ORA B"); break;
+    case 0xb1: printf("ORA C"); break;
+    case 0xb2: printf("ORA D"); break;
+    case 0xb3: printf("ORA E"); break;
+    case 0xb4: printf("ORA H"); break;
+    case 0xb5: printf("ORA L"); break;
+    case 0xb6: printf("ORA M"); break;
+    case 0xb7: printf("ORA A"); break;
+    case 0xb8: printf("CMP B"); break;
+    case 0xb9: printf("CMP C"); break;
+    case 0xba: printf("CMP D"); break;
+    case 0xbb: printf("CMP E"); break;
+    case 0xbc: printf("CMP H"); break;
+    case 0xbd: printf("CMP L"); break;
+    case 0xbe: printf("CMP M"); break;
+    case 0xbf: printf("CMP A"); break;
     case 0xc0: printf("RNZ"); break;
     case 0xc1: printf("POP B"); break;
     case 0xc2: printf("JNZ $%02x%02x", code[2], code[1]);
@@ -532,7 +532,6 @@ int Disassembler(uint8_t *codebuffer, int pc)
                opbytes = 2;
                break;
     case 0xff: printf("RST 7"); break;
-
     default: break;
   }
 
@@ -559,7 +558,7 @@ int Emulator(States *state)
   switch(*opcode)
   {
     case 0x00: break;// NOP
-    case 0x01: // LXI B,word(2 bytes)
+    case 0x01: // LXI B,D16
                state->c = opcode[1];
                state->b = opcode[2];
                state-> pc += 2;//Advance by 2 bytes
@@ -609,11 +608,21 @@ int Emulator(States *state)
           uint8_t x = state->a;
           state->a = ((x & 1) << 7) | (x >> 1);
           state->cc.cy = (1 == (x&1));
-        } break;
+        }break;
     case 0x10: IncompleteInstruction(state); break;
     case 0x11: // LXI D,D16
+               state->e = opcode[1];
+               state->d = opcode[2];
+               state-> pc += 2;
+               break;
     case 0x12: IncompleteInstruction(state); break;
     case 0x13: // INX D
+        {
+          uint16_t rp = ((state->d) << 8) | (state->e);
+          uint16_t answer = rp + 1;
+          state->d = ((answer >> 8) & 0xff);
+          state->e = (answer & 0xff);
+        } break;
     case 0x14: IncompleteInstruction(state); break;
     case 0x15: IncompleteInstruction(state); break;
     case 0x16: IncompleteInstruction(state); break;
@@ -621,15 +630,19 @@ int Emulator(States *state)
     case 0x18: IncompleteInstruction(state); break;
     case 0x19: // DAD D
         {
-          uint16_t rp = ((state->d)<< 8) | (state->e); // set D to MSByte
-          uint16_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
+          uint16_t rp = ((state->d)<< 8) | (state->e);
+          uint16_t hl = ((state->h)<< 8) | (state->l);
           uint16_t answer = hl + rp; // Add HL + DE
           state->cc.cy = (answer > 0xff);
-          /* move MSByte to LSByte and clear upper half*/
           state->h = ( (answer>>8) & 0xff);
-          state->l = (answer & 0xff); // Clear upper half
+          state->l = (answer & 0xff);
         } break;
     case 0x1a: // LDAX D
+        {
+          uint16_t rp_addr = ((state->d) << 8) | (state->e);
+          uint16_t load = state->memory[rp_addr];
+          state->a = load;
+        }break;
     case 0x1b: IncompleteInstruction(state); break;
     case 0x1c: IncompleteInstruction(state); break;
     case 0x1d: IncompleteInstruction(state); break;
@@ -640,9 +653,76 @@ int Emulator(States *state)
           state->a = (state->cc.cy << 7) | (x >> 1);
           state->cc.cy = (1 == (x&1));
         } break;
+    case 0x20: IncompleteInstruction(state); break;
+    case 0x21: // LXI H,D16
+               state->l = opcode[1];
+               state->h = opcode[2];
+               state-> pc += 2;
+               break;
+    case 0x22: IncompleteInstruction(state); break;
+    case 0x23: // INX H
+        {
+          uint16_t rp = ((state->h) << 8) | (state->l);
+          uint16_t answer = rp + 1;
+          state->h = ((answer >> 8) & 0xff);
+          state->l = (answer & 0xff);
+        } break;
+    case 0x24: IncompleteInstruction(state); break;
+    case 0x25: IncompleteInstruction(state); break;
+    case 0x26: // MVI H,D8
+               state->h = opcode[1];
+               break;
+    case 0x27: IncompleteInstruction(state); break;
+    case 0x28: IncompleteInstruction(state); break;
+    case 0x29: // DAD H
+        {
+          uint16_t rp = ((state->h)<< 8) | (state->l);
+          uint16_t answer = rp + rp; // Add HL + HL
+          state->cc.cy = (answer > 0xff);
+          state->h = ( (answer>>8) & 0xff);
+          state->l = (answer & 0xff);
+        } break;
+    case 0x2a: IncompleteInstruction(state); break;
+    case 0x2b: IncompleteInstruction(state); break;
+    case 0x2c: IncompleteInstruction(state); break;
+    case 0x2d: IncompleteInstruction(state); break;
+    case 0x2e: IncompleteInstruction(state); break;
     case 0x2f: // CMA
                state->a = ~state->a;
                break;
+    case 0x30: IncompleteInstruction(state); break;
+    case 0x31: // LXI SP,D16
+        {
+          state->memory[state->sp-1] = opcode[2];
+          state->memory[state->sp-2] = opcode[1];
+          state->sp = state->sp - 2;
+          state->pc += 2;
+        } break;
+    case 0x32: // STA adr
+        {
+          uint16_t addr = (opcode[2] << 8) | opcode[1]; // Form address
+          state->memory[addr] = state->a; // Load Acc to addr location
+        } break;
+    case 0x33: IncompleteInstruction(state); break;
+    case 0x34: IncompleteInstruction(state); break;
+    case 0x35: IncompleteInstruction(state); break;
+    case 0x36: // MVI M,D8
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->memory[addr] = opcode[1];
+        } break;
+    case 0x37: IncompleteInstruction(state); break;
+    case 0x38: IncompleteInstruction(state); break;
+    case 0x39: IncompleteInstruction(state); break;
+    case 0x3a: IncompleteInstruction(state); break;
+    case 0x3b: IncompleteInstruction(state); break;
+    case 0x3c: IncompleteInstruction(state); break;
+    case 0x3d: IncompleteInstruction(state); break;
+    case 0x3e: // MVI A,D8
+               state->a = opcode[1];
+               break;
+    case 0x3f: IncompleteInstruction(state); break;
+    case 0x40: IncompleteInstruction(state); break;
     case 0x41: // MOV B,C
                state->b = state->c;
                break;
@@ -652,6 +732,80 @@ int Emulator(States *state)
     case 0x43: // MOV B,E
                state->b = state->e;
                break;
+    case 0x44: IncompleteInstruction(state); break;
+    case 0x45: IncompleteInstruction(state); break;
+    case 0x46: IncompleteInstruction(state); break;
+    case 0x47: IncompleteInstruction(state); break;
+    case 0x48: IncompleteInstruction(state); break;
+    case 0x49: IncompleteInstruction(state); break;
+    case 0x4a: IncompleteInstruction(state); break;
+    case 0x4b: IncompleteInstruction(state); break;
+    case 0x4c: IncompleteInstruction(state); break;
+    case 0x4d: IncompleteInstruction(state); break;
+    case 0x4e: IncompleteInstruction(state); break;
+    case 0x4f: IncompleteInstruction(state); break;
+    case 0x50: IncompleteInstruction(state); break;
+    case 0x51: IncompleteInstruction(state); break;
+    case 0x52: IncompleteInstruction(state); break;
+    case 0x53: IncompleteInstruction(state); break;
+    case 0x54: IncompleteInstruction(state); break;
+    case 0x55: IncompleteInstruction(state); break;
+    case 0x56: // MOV D,M
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->d = state->memory[addr];
+        } break;
+    case 0x57: IncompleteInstruction(state); break;
+    case 0x58: IncompleteInstruction(state); break;
+    case 0x59: IncompleteInstruction(state); break;
+    case 0x5a: IncompleteInstruction(state); break;
+    case 0x5b: IncompleteInstruction(state); break;
+    case 0x5c: IncompleteInstruction(state); break;
+    case 0x5d: IncompleteInstruction(state); break;
+    case 0x5e: // MOV E,M
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->e = state->memory[addr];
+        } break;
+    case 0x5f: IncompleteInstruction(state); break;
+    case 0x60: IncompleteInstruction(state); break;
+    case 0x61: IncompleteInstruction(state); break;
+    case 0x62: IncompleteInstruction(state); break;
+    case 0x63: IncompleteInstruction(state); break;
+    case 0x64: IncompleteInstruction(state); break;
+    case 0x65: IncompleteInstruction(state); break;
+    case 0x66: // MOV H,M
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->h = state->memory[addr];
+        } break;
+    case 0x67: IncompleteInstruction(state); break;
+    case 0x68: IncompleteInstruction(state); break;
+    case 0x69: IncompleteInstruction(state); break;
+    case 0x6a: IncompleteInstruction(state); break;
+    case 0x6b: IncompleteInstruction(state); break;
+    case 0x6c: IncompleteInstruction(state); break;
+    case 0x6d: IncompleteInstruction(state); break;
+    case 0x6e: IncompleteInstruction(state); break;
+    case 0x6f: // MOV L,A
+               state->l = state->a;
+               break;
+    case 0x70: IncompleteInstruction(state); break;
+    case 0x71: IncompleteInstruction(state); break;
+    case 0x72: IncompleteInstruction(state); break;
+    case 0x73: IncompleteInstruction(state); break;
+    case 0x74: IncompleteInstruction(state); break;
+    case 0x75: IncompleteInstruction(state); break;
+    case 0x76: IncompleteInstruction(state); break;
+    case 0x77: // MOV M,A
+    case 0x78: IncompleteInstruction(state); break;
+    case 0x79: IncompleteInstruction(state); break;
+    case 0x7a: // MOV A,D
+    case 0x7b: // MOV A,E
+    case 0x7c: // MOV A,H
+    case 0x7d: IncompleteInstruction(state); break;
+    case 0x7e: // MOV A,M
+    case 0x7f: IncompleteInstruction(state); break;
     case 0x80: // ADD B
         {
           uint16_t answer = (uint16_t)state->a + (uint16_t)state->b;
@@ -670,6 +824,10 @@ int Emulator(States *state)
           state->cc.p = Parity16b(answer & 0xff);
           state->a = answer & 0xff;
         } break;
+    case 0x82: IncompleteInstruction(state); break;
+    case 0x83: IncompleteInstruction(state); break;
+    case 0x84: IncompleteInstruction(state); break;
+    case 0x85: IncompleteInstruction(state); break;
     case 0x86: // ADD M
         {
           uint16_t offset = (state->h<<8) | (state->l);
@@ -681,6 +839,64 @@ int Emulator(States *state)
           state->cc.p = Parity16b(answer & 0xff);
           state->a = answer & 0xff;
         } break;
+    case 0x87: IncompleteInstruction(state); break;
+    case 0x88: IncompleteInstruction(state); break;
+    case 0x89: IncompleteInstruction(state); break;
+    case 0x8a: IncompleteInstruction(state); break;
+    case 0x8b: IncompleteInstruction(state); break;
+    case 0x8c: IncompleteInstruction(state); break;
+    case 0x8d: IncompleteInstruction(state); break;
+    case 0x8e: IncompleteInstruction(state); break;
+    case 0x8f: IncompleteInstruction(state); break;
+    case 0x90: IncompleteInstruction(state); break;
+    case 0x91: IncompleteInstruction(state); break;
+    case 0x92: IncompleteInstruction(state); break;
+    case 0x93: IncompleteInstruction(state); break;
+    case 0x94: IncompleteInstruction(state); break;
+    case 0x95: IncompleteInstruction(state); break;
+    case 0x96: IncompleteInstruction(state); break;
+    case 0x97: IncompleteInstruction(state); break;
+    case 0x98: IncompleteInstruction(state); break;
+    case 0x99: IncompleteInstruction(state); break;
+    case 0x9a: IncompleteInstruction(state); break;
+    case 0x9b: IncompleteInstruction(state); break;
+    case 0x9c: IncompleteInstruction(state); break;
+    case 0x9d: IncompleteInstruction(state); break;
+    case 0x9e: IncompleteInstruction(state); break;
+    case 0x9f: IncompleteInstruction(state); break;
+    case 0xa0: IncompleteInstruction(state); break;
+    case 0xa1: IncompleteInstruction(state); break;
+    case 0xa2: IncompleteInstruction(state); break;
+    case 0xa3: IncompleteInstruction(state); break;
+    case 0xa4: IncompleteInstruction(state); break;
+    case 0xa5: IncompleteInstruction(state); break;
+    case 0xa6: IncompleteInstruction(state); break;
+    case 0xa7: // ANA A
+    case 0xa8: IncompleteInstruction(state); break;
+    case 0xa9: IncompleteInstruction(state); break;
+    case 0xaa: IncompleteInstruction(state); break;
+    case 0xab: IncompleteInstruction(state); break;
+    case 0xac: IncompleteInstruction(state); break;
+    case 0xad: IncompleteInstruction(state); break;
+    case 0xae: IncompleteInstruction(state); break;
+    case 0xaf: // XRA A
+    case 0xb0: IncompleteInstruction(state); break;
+    case 0xb1: IncompleteInstruction(state); break;
+    case 0xb2: IncompleteInstruction(state); break;
+    case 0xb3: IncompleteInstruction(state); break;
+    case 0xb4: IncompleteInstruction(state); break;
+    case 0xb5: IncompleteInstruction(state); break;
+    case 0xb6: IncompleteInstruction(state); break;
+    case 0xb7: IncompleteInstruction(state); break;
+    case 0xb8: IncompleteInstruction(state); break;
+    case 0xb9: IncompleteInstruction(state); break;
+    case 0xba: IncompleteInstruction(state); break;
+    case 0xbb: IncompleteInstruction(state); break;
+    case 0xbc: IncompleteInstruction(state); break;
+    case 0xbd: IncompleteInstruction(state); break;
+    case 0xbe: IncompleteInstruction(state); break;
+    case 0xbf: IncompleteInstruction(state); break;
+    case 0xc0: IncompleteInstruction(state); break;
     case 0xc1: // POP B
         {
           state->c = state->memory[state->sp];
@@ -698,6 +914,7 @@ int Emulator(States *state)
     case 0xc3: // JMP addr
               state->pc = (opcode[2]<<8) | opcode[1];
               break;
+    case 0xc4: IncompleteInstruction(state); break;
     case 0xc5: // PUSH B
         {
           state->memory[state->sp-1] = state->b;
@@ -713,12 +930,17 @@ int Emulator(States *state)
           state->cc.p = Parity16b(answer & 0xff);
           state->a = answer & 0xff;
         } break;
+    case 0xc7: IncompleteInstruction(state); break;
+    case 0xc8: IncompleteInstruction(state); break;
     case 0xc9: // RET
         {
               state->pc = state->memory[state->sp] |
                           (state->memory[state->sp+1]<<8);
               state->sp += 2;
         } break;
+    case 0xca: IncompleteInstruction(state); break;
+    case 0xcb: IncompleteInstruction(state); break;
+    case 0xcc: IncompleteInstruction(state); break;
     case 0xcd: // CALL addr
         {
           uint16_t ret = state->pc+2;
@@ -727,6 +949,30 @@ int Emulator(States *state)
           state->sp = state->sp - 2;
           state->pc = (opcode[2]<<8) | opcode[1];
         } break;
+    case 0xce: IncompleteInstruction(state); break;
+    case 0xcf: IncompleteInstruction(state); break;
+    case 0xd0: IncompleteInstruction(state); break;
+    case 0xd1: // POP D
+    case 0xd2: IncompleteInstruction(state); break;
+    case 0xd3: // OUT D8
+    case 0xd4: IncompleteInstruction(state); break;
+    case 0xd5: // PUSH D
+    case 0xd6: IncompleteInstruction(state); break;
+    case 0xd7: IncompleteInstruction(state); break;
+    case 0xd8: IncompleteInstruction(state); break;
+    case 0xd9: IncompleteInstruction(state); break;
+    case 0xda: IncompleteInstruction(state); break;
+    case 0xdb: IncompleteInstruction(state); break;
+    case 0xdc: IncompleteInstruction(state); break;
+    case 0xdd: IncompleteInstruction(state); break;
+    case 0xde: IncompleteInstruction(state); break;
+    case 0xdf: IncompleteInstruction(state); break;
+    case 0xe0: IncompleteInstruction(state); break;
+    case 0xe1: // POP H
+    case 0xe2: IncompleteInstruction(state); break;
+    case 0xe3: IncompleteInstruction(state); break;
+    case 0xe4: IncompleteInstruction(state); break;
+    case 0xe5: // PUSH H
     case 0xe6: // ANI D8
         {
           uint8_t x = state->a & opcode[1];
@@ -737,6 +983,16 @@ int Emulator(States *state)
           state->a = x;
           state->pc++;
         } break;
+    case 0xe7: IncompleteInstruction(state); break;
+    case 0xe8: IncompleteInstruction(state); break;
+    case 0xe9: IncompleteInstruction(state); break;
+    case 0xea: IncompleteInstruction(state); break;
+    case 0xeb: // XCHG
+    case 0xec: IncompleteInstruction(state); break;
+    case 0xed: IncompleteInstruction(state); break;
+    case 0xee: IncompleteInstruction(state); break;
+    case 0xef: IncompleteInstruction(state); break;
+    case 0xf0: IncompleteInstruction(state); break;
     case 0xf1: // POP PSW
         {
           state->a = state->memory[state->sp+1];
@@ -748,6 +1004,9 @@ int Emulator(States *state)
           state->cc.ac = ((psw & 0x10) == 0x10);
           state->sp += 2;
         } break;
+    case 0xf2: IncompleteInstruction(state); break;
+    case 0xf3: IncompleteInstruction(state); break;
+    case 0xf4: IncompleteInstruction(state); break;
     case 0xf5: // PUSH PSW
         {
           state->memory[state->sp-1] = state->a;
@@ -756,7 +1015,15 @@ int Emulator(States *state)
           state->memory[state->sp-2] = psw;
           state->sp = state->sp - 2;
         } break;
-    case 0xfe: // CPI 1 byte
+    case 0xf6: IncompleteInstruction(state); break;
+    case 0xf7: IncompleteInstruction(state); break;
+    case 0xf8: IncompleteInstruction(state); break;
+    case 0xf9: IncompleteInstruction(state); break;
+    case 0xfa: IncompleteInstruction(state); break;
+    case 0xfb: // EI
+    case 0xfc: IncompleteInstruction(state); break;
+    case 0xfd: IncompleteInstruction(state); break;
+    case 0xfe: // CPI D8
         {
           uint8_t x = state->a - opcode[1];
           state->cc.z = (x == 0);
@@ -766,6 +1033,7 @@ int Emulator(States *state)
           state->pc++;
         } break;
     case 0xff: IncompleteInstruction(state); break;
+    default: IncompleteInstruction(state); break;
   }
 
   // Print out condition flag content

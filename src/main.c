@@ -95,8 +95,8 @@ int main(int argc, char **argv){
 void IncompleteInstruction(States *state)
 {
   state->pc -= 1; // undoing PC increment
-  Disassembler(state->memory, state->pc);
   printf("Error: Incomplete Instruction-Emulation Halted\n");
+  Disassembler(state->memory, state->pc);
   EXIT_FAILURE;
 }
 
@@ -559,32 +559,35 @@ int Emulator(States *state)
   {
     case 0x00: break;// NOP
     case 0x01: // LXI B,D16
-               state->c = opcode[1];
-               state->b = opcode[2];
-               state-> pc += 2;//Advance by 2 bytes
-               break;
+        {
+          state->c = opcode[1];
+          state->b = opcode[2];
+          state-> pc += 2;//Advance by 2 bytes
+        } break;
     case 0x02: IncompleteInstruction(state); break;
     case 0x03: IncompleteInstruction(state); break;
     case 0x04: IncompleteInstruction(state); break;
     case 0x05: //DCR B
         {
           uint8_t answer = state->b - 1;
-          state->cc.z = ((answer & 0xff) == 0);// If result is zero, set flag
-          state->cc.s = ((answer & 0x80) != 0);// If bit 7 is set, set sign flag
+          state->cc.z = (answer == 0);// If result is zero, set flag
+          state->cc.s = ((answer & 0x80) == 0x80);// If bit 7 is set, set sign flag
           state->cc.p = Parity8b(answer);// Parity flag is set if even
           state->b = answer;
         } break;
     case 0x06: // MVI B,D8
-               state->b = opcode[1];
-               break;
+        {
+          state->b = opcode[1];
+          state->pc++;
+        } break;
     case 0x07: IncompleteInstruction(state); break;
     case 0x08: IncompleteInstruction(state); break;
     case 0x09: // DAD B
         {
-          uint16_t rp = ((state->b)<< 8) | (state->c); // set B to MSByte
-          uint16_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
-          uint16_t answer = hl + rp; // Add HL + BC
-          state->cc.cy = (answer > 0xff);
+          uint32_t rp = ((state->b)<< 8) | (state->c); // set B to MSByte
+          uint32_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
+          uint32_t answer = hl + rp; // Add HL + BC
+          state->cc.cy = (answer > 0xffff);
           /* move MSByte to LSByte and clear upper half*/
           state->h = ( (answer>>8) & 0xff);
           state->l = (answer & 0xff); // Clear upper half
@@ -595,14 +598,16 @@ int Emulator(States *state)
     case 0x0d: // DCR C
         {
           uint8_t answer = state->c - 1;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer & 0x80) == 0x80);
           state->cc.p = Parity8b(answer);
           state->c = answer;
         } break;
     case 0x0e: // MVI C,D8
-               state->c = opcode[1];
-               break;
+        {
+          state->c = opcode[1];
+          state->pc++;
+        } break;
     case 0x0f: // RRC
         {
           uint8_t x = state->a;
@@ -630,18 +635,17 @@ int Emulator(States *state)
     case 0x18: IncompleteInstruction(state); break;
     case 0x19: // DAD D
         {
-          uint16_t rp = ((state->d)<< 8) | (state->e);
-          uint16_t hl = ((state->h)<< 8) | (state->l);
-          uint16_t answer = hl + rp; // Add HL + DE
-          state->cc.cy = (answer > 0xff);
+          uint32_t rp = ((state->d)<< 8) | (state->e);
+          uint32_t hl = ((state->h)<< 8) | (state->l);
+          uint32_t answer = hl + rp; // Add HL + DE
+          state->cc.cy = (answer > 0xffff);
           state->h = ( (answer>>8) & 0xff);
           state->l = (answer & 0xff);
         } break;
     case 0x1a: // LDAX D
         {
           uint16_t rp_addr = ((state->d) << 8) | (state->e);
-          uint16_t load = state->memory[rp_addr];
-          state->a = load;
+          state->a = state->memory[rp_addr];
         }break;
     case 0x1b: IncompleteInstruction(state); break;
     case 0x1c: IncompleteInstruction(state); break;
@@ -671,6 +675,7 @@ int Emulator(States *state)
     case 0x25: IncompleteInstruction(state); break;
     case 0x26: // MVI H,D8
                state->h = opcode[1];
+               state->pc++;
                break;
     case 0x27: IncompleteInstruction(state); break;
     case 0x28: IncompleteInstruction(state); break;
@@ -678,7 +683,7 @@ int Emulator(States *state)
         {
           uint16_t rp = ((state->h)<< 8) | (state->l);
           uint16_t answer = rp + rp; // Add HL + HL
-          state->cc.cy = (answer > 0xff);
+          state->cc.cy = (answer > 0xffff);
           state->h = ( (answer>>8) & 0xff);
           state->l = (answer & 0xff);
         } break;
@@ -691,17 +696,16 @@ int Emulator(States *state)
                state->a = ~state->a;
                break;
     case 0x30: IncompleteInstruction(state); break;
-    case 0x31: // LXI SP,D16
+    case 0x31: // LXI SP,D16 (might have to double check this one)
         {
-          state->memory[state->sp-1] = opcode[2];
-          state->memory[state->sp-2] = opcode[1];
-          state->sp = state->sp - 2;
+          state->sp = ((opcode[2] << 8) | opcode[1]);
           state->pc += 2;
         } break;
-    case 0x32: // STA adr
+    case 0x32: // STA addr
         {
-          uint16_t addr = (opcode[2] << 8) | opcode[1]; // Form address
+          uint16_t addr = ((opcode[2] << 8) | opcode[1]); // Form address
           state->memory[addr] = state->a; // Load Acc to addr location
+          state->pc += 2;
         } break;
     case 0x33: IncompleteInstruction(state); break;
     case 0x34: IncompleteInstruction(state); break;
@@ -714,12 +718,18 @@ int Emulator(States *state)
     case 0x37: IncompleteInstruction(state); break;
     case 0x38: IncompleteInstruction(state); break;
     case 0x39: IncompleteInstruction(state); break;
-    case 0x3a: IncompleteInstruction(state); break;
+    case 0x3a: // LDA addr
+        {
+          uint16_t addr = ((opcode[2] << 8) | opcode[1]);
+          state->a = state->memory[addr];
+          state->pc +=2;
+        } break;
     case 0x3b: IncompleteInstruction(state); break;
     case 0x3c: IncompleteInstruction(state); break;
     case 0x3d: IncompleteInstruction(state); break;
     case 0x3e: // MVI A,D8
                state->a = opcode[1];
+               state->pc++;
                break;
     case 0x3f: IncompleteInstruction(state); break;
     case 0x40: IncompleteInstruction(state); break;
@@ -798,13 +808,30 @@ int Emulator(States *state)
     case 0x75: IncompleteInstruction(state); break;
     case 0x76: IncompleteInstruction(state); break;
     case 0x77: // MOV M,A
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->memory[addr] = state->a;
+        } break;
     case 0x78: IncompleteInstruction(state); break;
     case 0x79: IncompleteInstruction(state); break;
     case 0x7a: // MOV A,D
+        {
+          state->a = state->d;
+        } break;
     case 0x7b: // MOV A,E
+        {
+          state->a = state->e;
+        } break;
     case 0x7c: // MOV A,H
+        {
+          state->a = state->h;
+        } break;
     case 0x7d: IncompleteInstruction(state); break;
     case 0x7e: // MOV A,M
+        {
+          uint16_t addr = ((state->h) << 8) | (state->l);
+          state->a = state->memory[addr];
+        } break;
     case 0x7f: IncompleteInstruction(state); break;
     case 0x80: // ADD B
         {
@@ -872,6 +899,10 @@ int Emulator(States *state)
     case 0xa5: IncompleteInstruction(state); break;
     case 0xa6: IncompleteInstruction(state); break;
     case 0xa7: // ANA A
+        {
+          uint8_t answer = (state->a) & (state->a); // A AND A
+          state->a = answer;
+        } break;
     case 0xa8: IncompleteInstruction(state); break;
     case 0xa9: IncompleteInstruction(state); break;
     case 0xaa: IncompleteInstruction(state); break;
@@ -880,6 +911,10 @@ int Emulator(States *state)
     case 0xad: IncompleteInstruction(state); break;
     case 0xae: IncompleteInstruction(state); break;
     case 0xaf: // XRA A
+        {
+          uint8_t answer = (state->a) ^ (state->a); // A XOR A
+          state->a = answer;
+        } break;
     case 0xb0: IncompleteInstruction(state); break;
     case 0xb1: IncompleteInstruction(state); break;
     case 0xb2: IncompleteInstruction(state); break;
@@ -953,10 +988,23 @@ int Emulator(States *state)
     case 0xcf: IncompleteInstruction(state); break;
     case 0xd0: IncompleteInstruction(state); break;
     case 0xd1: // POP D
+        {
+          state->e = state->memory[state->sp];
+          state->d = state->memory[state->sp+1];
+          state->sp += 2;
+        } break;
     case 0xd2: IncompleteInstruction(state); break;
-    case 0xd3: // OUT D8
+    case 0xd3: // OUT D8 (will need to double check)
+        {
+          opcode[1] = state->a;
+        } break;
     case 0xd4: IncompleteInstruction(state); break;
     case 0xd5: // PUSH D
+        {
+          state->memory[state->sp-1] = state->d;
+          state->memory[state->sp-2] = state->e;
+          state->sp = state->sp - 2;
+        } break;
     case 0xd6: IncompleteInstruction(state); break;
     case 0xd7: IncompleteInstruction(state); break;
     case 0xd8: IncompleteInstruction(state); break;
@@ -969,10 +1017,20 @@ int Emulator(States *state)
     case 0xdf: IncompleteInstruction(state); break;
     case 0xe0: IncompleteInstruction(state); break;
     case 0xe1: // POP H
+        {
+          state->l = state->memory[state->sp];
+          state->h = state->memory[state->sp+1];
+          state->sp += 2;
+        } break;
     case 0xe2: IncompleteInstruction(state); break;
     case 0xe3: IncompleteInstruction(state); break;
     case 0xe4: IncompleteInstruction(state); break;
     case 0xe5: // PUSH H
+        {
+          state->memory[state->sp-1] = state->h;
+          state->memory[state->sp-2] = state->l;
+          state->sp = state->sp - 2;
+        } break;
     case 0xe6: // ANI D8
         {
           uint8_t x = state->a & opcode[1];
@@ -988,6 +1046,14 @@ int Emulator(States *state)
     case 0xe9: IncompleteInstruction(state); break;
     case 0xea: IncompleteInstruction(state); break;
     case 0xeb: // XCHG
+        {
+          uint8_t rh_temp = state->h; // Temp for higher register
+          uint8_t rl_temp = state->l; // Temp for lower register
+          state->h = state->d; // Swap H for D
+          state->d = rh_temp;
+          state->l = state->e; // Swap L for E
+          state->e = rl_temp;
+        } break;
     case 0xec: IncompleteInstruction(state); break;
     case 0xed: IncompleteInstruction(state); break;
     case 0xee: IncompleteInstruction(state); break;
@@ -1021,6 +1087,9 @@ int Emulator(States *state)
     case 0xf9: IncompleteInstruction(state); break;
     case 0xfa: IncompleteInstruction(state); break;
     case 0xfb: // EI
+        {
+          state->int_enable = 0xff; // Not sure will have to double check
+        } break;
     case 0xfc: IncompleteInstruction(state); break;
     case 0xfd: IncompleteInstruction(state); break;
     case 0xfe: // CPI D8

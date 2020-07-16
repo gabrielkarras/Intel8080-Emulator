@@ -14,6 +14,6 @@ If you wish to run it:
 2. gcc disassembler.c -o disassembler (run gcc compiler)
 3. ./disassembler
 
-Your results should look like the screenshot below
+Your results should look like the screenshot below. However, if you wish to have a complete & thorough comparison use this reference to the [complete Space Invaders' code](http://computerarcheology.com/Arcade/SpaceInvaders/Code.html)
 
 ![disassembler_result](https://user-images.githubusercontent.com/30480951/87622306-d834a180-c6f0-11ea-85ff-22a0546c3db6.png)

@@ -15,7 +15,7 @@
 
 
 /* Definitions */
-#define FILE_NAME1 "cpudiag.bin"
+#define FILE_NAME "cpudiag.bin"
 
 
 /* Struct definitions */
@@ -53,7 +53,8 @@ int Disassembler(uint8_t *codebuffer, int pc);
 int Emulator(States *state);
 
 
-int main(int argc, char **argv){
+int main(int argc, char **argv)
+{
 
   int EOI = 0; // End Of Instruction
 
@@ -62,8 +63,27 @@ int main(int argc, char **argv){
   /* Allocate for 16bits address/64Kbytes */
   state->memory = malloc(0x10000);
 
-  /* Read Space Invaders according to memory mapping */
-  ReadIntoMemory(state, FILE_NAME1, 0);
+  /*
+    Read cpudiag binary starting from 0x100
+    Avoids the instruction 'JMP $0100'
+  */
+  ReadIntoMemory(state, FILE_NAME, 0x100);
+
+  /* Fix 'JMP 0x100' instruction */
+  state->memory[0] = 0xc3;
+  state->memory[1] = 0;
+  state->memory[2] = 0x01;
+
+  /*
+    Fix SP from 0x6ad to 0x7ad
+    Byte #112(0x70) + offset of 256 bytes(0x100) = total offset 368(0x170)
+   */
+  state->memory[368] = 0x7;
+
+  /* Skip DAA test */
+  state->memory[0x59c] = 0xc3; // JMP
+  state->memory[0x59] = 0xc2;
+  state->memory[0x59e] = 0x05;
 
   /*
     Loop until end of program
@@ -93,7 +113,7 @@ void IncompleteInstruction(States *state)
   state->pc -= 1; // undoing PC increment
   printf("Error: Incomplete Instruction-Emulation Halted\n");
   Disassembler(state->memory, state->pc);
-  EXIT_FAILURE;
+  exit(EXIT_FAILURE);
 }
 
 /*
@@ -560,9 +580,26 @@ int Emulator(States *state)
           state->b = opcode[2];
           state-> pc += 2;//Advance by 2 bytes
         } break;
-    case 0x02: IncompleteInstruction(state); break;
-    case 0x03: IncompleteInstruction(state); break;
-    case 0x04: IncompleteInstruction(state); break;
+    case 0x02: // STAX B
+        {
+          uint16_t addr = ((state->b) << 8) | (state->c);
+          state->memory[addr] = state->a;
+        } break;
+    case 0x03: // INX B
+        {
+          uint16_t answer = ( ((state->b) << 8) | (state->c) ) + 1;
+          state->b = (answer >> 8) & 0xff;
+          state->c = answer & 0xff;
+        } break;
+    case 0x04: // INR B
+        {
+          uint8_t answer = state->b + 1;
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer&0x80) == 0x80);
+          state->cc.p = Parity8b(answer);
+          // state->cc.ac; - unsure
+          state->b = answer;
+        } break;
     case 0x05: //DCR B
         {
           uint8_t answer = state->b - 1;
@@ -576,8 +613,13 @@ int Emulator(States *state)
           state->b = opcode[1];
           state->pc++;
         } break;
-    case 0x07: IncompleteInstruction(state); break;
-    case 0x08: IncompleteInstruction(state); break;
+    case 0x07: // RLC
+        {
+          uint8_t x = state->a;
+          state->a = ((x&0x80) >> 7) | (x << 1);
+          state->cc.cy = ((x&0x80) == 0x80);
+        }break;
+    case 0x08: break; // NOP
     case 0x09: // DAD B
         {
           uint32_t rp = ((state->b)<< 8) | (state->c); // set B to MSByte
@@ -588,8 +630,17 @@ int Emulator(States *state)
           state->h = ( (answer>>8) & 0xff);
           state->l = (answer & 0xff); // Clear upper half
         } break;
-    case 0x0a: IncompleteInstruction(state); break;
-    case 0x0b: IncompleteInstruction(state); break;
+    case 0x0a: // LDAX B
+        {
+          uint16_t rp_addr = ((state->b) << 8) | (state->c);
+          state->a = state->memory[rp_addr];
+        } break;
+    case 0x0b: // DCX B
+        {
+          uint16_t answer = ( ((state->b) << 8) | (state->c)) - 1;
+          state->b = (answer >> 8) & 0xff;
+          state->c = answer&0xff;          
+        } break;
     case 0x0c: IncompleteInstruction(state); break;
     case 0x0d: // DCR C
         {
@@ -609,7 +660,7 @@ int Emulator(States *state)
           uint8_t x = state->a;
           state->a = ((x & 1) << 7) | (x >> 1);
           state->cc.cy = (1 == (x&1));
-        }break;
+        } break;
     case 0x10: IncompleteInstruction(state); break;
     case 0x11: // LXI D,D16
                state->e = opcode[1];
@@ -619,8 +670,7 @@ int Emulator(States *state)
     case 0x12: IncompleteInstruction(state); break;
     case 0x13: // INX D
         {
-          uint16_t rp = ((state->d) << 8) | (state->e);
-          uint16_t answer = rp + 1;
+          uint16_t answer = ( ((state->d) << 8) | (state->e) ) + 1;
           state->d = ((answer >> 8) & 0xff);
           state->e = (answer & 0xff);
         } break;
@@ -993,6 +1043,30 @@ int Emulator(States *state)
     case 0xcb: IncompleteInstruction(state); break;
     case 0xcc: IncompleteInstruction(state); break;
     case 0xcd: // CALL addr
+    /*
+      CPU diagnotic test makes call and
+      prints to console with the help of CP/M OS
+    */
+    #ifdef CPUDIAG
+          if ( ((opcode[2] << 8) | opcode[1]) == 5 ){
+            if (state->c == 9){
+              uint16_t addr = (state->d << 8) | (state->e);
+              char *str = &state->memory[addr + 3];
+
+              while(*str != '$'){
+                printf("%c", *str++);
+              }
+              printf("\n");
+            }
+            else if(state->c == 2){
+              printf("Print routine called\n");
+            }
+          }
+          else if( ((opcode[2] << 8) | opcode[1]) == 0){
+              exit(EXIT_SUCCESS);
+          }
+          else
+    #endif
         {
           uint16_t ret = state->pc+2;
           state->memory[state->sp-1] = (ret>>8) & 0xff;

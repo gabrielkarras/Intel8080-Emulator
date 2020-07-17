@@ -4,10 +4,8 @@
   License: DOWHATEVERYOUWANT
   Contact: gavrilkarras@hotmail.com
 
-  A complete emulation of all the opcode of the Intel 8080 CPU architecture
-
-  We perform CPU diagnostic test to verify the validity of every opcode
-  The test is part of binary file named cpudiag.bin
+  An emulator based on the Intel8080 architecture
+  We use the classical arcade game Space Invader to test the emulator
 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,7 +13,10 @@
 
 
 /* Definitions */
-#define FILE_NAME1 "cpudiag.bin"
+#define FILE_NAME1 "invaders.h"
+#define FILE_NAME2 "invaders.g"
+#define FILE_NAME3 "invaders.f"
+#define FILE_NAME4 "invaders.e"
 
 
 /* Struct definitions */
@@ -64,6 +65,9 @@ int main(int argc, char **argv){
 
   /* Read Space Invaders according to memory mapping */
   ReadIntoMemory(state, FILE_NAME1, 0);
+  ReadIntoMemory(state, FILE_NAME2, 0x800);
+  ReadIntoMemory(state, FILE_NAME3, 0x1000);
+  ReadIntoMemory(state, FILE_NAME4, 0x1800);
 
   /*
     Loop until end of program

@@ -22,9 +22,9 @@ Your results should look like the screenshot below. However, if you wish to have
 Similarly, I implemented an emulator for the Intel8080 CPU architecture. At this stage I've implemented the 50 suggested opcodes that will read and run Space Invaders.
 
 If you wish to run it:
-1. cd /src/ (cd into the correct folder)
-2. gcc main.c -o main (run gcc compiler)
-3. ./main
+1. cd /src/spaceinvader-emulator (cd into the correct folder)
+2. gcc emulator.c -o emulator (run gcc compiler)
+3. ./emulator
 
 Your results should look like the screenshot below. I've used this [Javascript based emulator](https://bluishcoder.co.nz/js8080/) for step by step analysis.
 ![IntelCPU50OpCode](https://user-images.githubusercontent.com/30480951/87625254-b38ff800-c6f7-11ea-8408-72d8c7c09241.png)

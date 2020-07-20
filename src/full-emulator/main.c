@@ -639,9 +639,17 @@ int Emulator(States *state)
         {
           uint16_t answer = ( ((state->b) << 8) | (state->c)) - 1;
           state->b = (answer >> 8) & 0xff;
-          state->c = answer&0xff;          
+          state->c = answer&0xff;
         } break;
-    case 0x0c: IncompleteInstruction(state); break;
+    case 0x0c: // INR C
+        {
+          uint8_t answer = state->c + 1;
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer&0x80) == 0x80);
+          state->cc.p = Parity8b(answer);
+          // state->cc.ac; - unsure
+          state->c = answer;
+        } break;
     case 0x0d: // DCR C
         {
           uint8_t answer = state->c - 1;
@@ -661,23 +669,52 @@ int Emulator(States *state)
           state->a = ((x & 1) << 7) | (x >> 1);
           state->cc.cy = (1 == (x&1));
         } break;
-    case 0x10: IncompleteInstruction(state); break;
+    case 0x10: break; // NOP
     case 0x11: // LXI D,D16
-               state->e = opcode[1];
-               state->d = opcode[2];
-               state-> pc += 2;
-               break;
-    case 0x12: IncompleteInstruction(state); break;
+        {
+          state->e = opcode[1];
+          state->d = opcode[2];
+          state-> pc += 2;
+        } break;
+    case 0x12: // STAX D
+        {
+          uint16_t addr = ((state->d) << 8) | (state->e);
+          state->memory[addr] = state->a;
+        } break;
     case 0x13: // INX D
         {
           uint16_t answer = ( ((state->d) << 8) | (state->e) ) + 1;
           state->d = ((answer >> 8) & 0xff);
           state->e = (answer & 0xff);
         } break;
-    case 0x14: IncompleteInstruction(state); break;
-    case 0x15: IncompleteInstruction(state); break;
-    case 0x16: IncompleteInstruction(state); break;
-    case 0x17: IncompleteInstruction(state); break;
+    case 0x14: // INR D
+        {
+          uint8_t answer = state->d + 1;
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer&0x80) == 0x80);
+          state->cc.p = Parity8b(answer);
+          // state->cc.ac; - unsure
+          state->d = answer;
+        } break;
+    case 0x15: // DCR D
+        {
+          uint8_t answer = state->d - 1;
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer & 0x80) == 0x80);
+          state->cc.p = Parity8b(answer);
+          state->d = answer;
+        } break;
+    case 0x16: // MVI D,D8
+        {
+          state->d = opcode[1];
+          state->pc++;
+        } break;
+    case 0x17: // RAL
+        {
+          uint8_t x = state->a;
+          state->a = ((state->cc.cy)&0x01) | (x << 1);
+          state->cc.cy = ((x&0x80) == 0x80);
+        } break;
     case 0x18: IncompleteInstruction(state); break;
     case 0x19: // DAD D
         {

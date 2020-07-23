@@ -472,7 +472,7 @@ int Disassembler(uint8_t *codebuffer, int pc)
                opbytes = 3;
                break;
     case 0xd5: printf("PUSH D"); break;
-    case 0xd6: printf("SUI D8");
+    case 0xd6: printf("SUI $%02x", code[1]);
                opbytes = 2;
                break;
     case 0xd7: printf("RST 2"); break;
@@ -1893,7 +1893,7 @@ int Emulator(States *state)
         } break;
     case 0xc7: // RST 0
         {
-          uint16_t ret = state->pc+2;
+          uint16_t ret = state->pc + 2;
           state->memory[state->sp-1] = (ret >> 8) & 0xff;
           state->memory[state->sp-2] = (ret & 0xff);
           state->sp = state->sp - 2;
@@ -1968,9 +1968,32 @@ int Emulator(States *state)
           state->sp = state->sp - 2;
           state->pc = (opcode[2]<<8) | opcode[1];
         } break;
-    case 0xce: IncompleteInstruction(state); break;
-    case 0xcf: IncompleteInstruction(state); break;
-    case 0xd0: IncompleteInstruction(state); break;
+    case 0xce: // ACI D8
+        {
+          uint16_t answer = state->a + opcode[1] + state->cc.cy;
+          state->cc.z = ((answer & 0xff) == 0);
+          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.cy = (answer > 0xff);
+          state->cc.p = Parity16b(answer & 0xff);
+          state->a = answer & 0xff;
+          state->pc++; // Double check
+        } break;
+    case 0xcf: // RST 1
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 1;
+        } break;
+    case 0xd0: // RNC
+        {
+          if(state->cc.cy == 0){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
     case 0xd1: // POP D
         {
           state->e = state->memory[state->sp];
@@ -1992,33 +2015,144 @@ int Emulator(States *state)
           // state->a
           state->pc++;
         } break;
-    case 0xd4: IncompleteInstruction(state); break;
+    case 0xd4: // CNC addr
+        {
+          if (state->cc.cy == 0) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
     case 0xd5: // PUSH D
         {
           state->memory[state->sp-1] = state->d;
           state->memory[state->sp-2] = state->e;
           state->sp = state->sp - 2;
         } break;
-    case 0xd6: IncompleteInstruction(state); break;
-    case 0xd7: IncompleteInstruction(state); break;
-    case 0xd8: IncompleteInstruction(state); break;
-    case 0xd9: IncompleteInstruction(state); break;
-    case 0xda: IncompleteInstruction(state); break;
-    case 0xdb: IncompleteInstruction(state); break;
-    case 0xdc: IncompleteInstruction(state); break;
-    case 0xdd: IncompleteInstruction(state); break;
-    case 0xde: IncompleteInstruction(state); break;
-    case 0xdf: IncompleteInstruction(state); break;
-    case 0xe0: IncompleteInstruction(state); break;
+    case 0xd6: // SUI D8
+        {
+          uint16_t answer = (uint16_t)state->a - (uint16_t)opcode[1];
+          state->cc.z = ((answer & 0xff) == 0);
+          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.cy = (answer > 0xff);
+          state->cc.p = Parity16b(answer & 0xff);
+          state->a = answer & 0xff;
+          state->pc++; // Double check
+        } break;
+    case 0xd7: // RST 2
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 2;
+        } break;
+    case 0xd8: // RC
+        {
+          if(state->cc.cy == 1){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
+    case 0xd9: break; // NOP
+    case 0xda: // JC addr
+        {
+          if(state->cc.cy == 1){
+            state->pc = (opcode[2] << 8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xdb: // IN D8
+        {
+          state->a = opcode[1]; // Double check
+          state->pc++;
+        } break;
+    case 0xdc: // CC addr
+        {
+          if (state->cc.cy == 1) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xdd: break; // NOP
+    case 0xde: // SBI D8
+        {
+          uint16_t answer = (uint16_t)state->a - (uint16_t)opcode[1] -
+                            (uint16_t)state->cc.cy;
+          state->cc.z = ((answer & 0xff) == 0);
+          state->cc.s = ((answer & 0x80) != 0);
+          state->cc.cy = (answer > 0xff);
+          state->cc.p = Parity16b(answer & 0xff);
+          state->a = answer & 0xff;
+          state->pc++; // Double check
+        } break;
+    case 0xdf: // RST 3
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 3;
+        } break;
+    case 0xe0: // RPO
+        {
+          if(state->cc.p == 0){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
     case 0xe1: // POP H
         {
           state->l = state->memory[state->sp];
           state->h = state->memory[state->sp+1];
           state->sp += 2;
         } break;
-    case 0xe2: IncompleteInstruction(state); break;
-    case 0xe3: IncompleteInstruction(state); break;
-    case 0xe4: IncompleteInstruction(state); break;
+    case 0xe2: // JPO addr
+        {
+          if(state->cc.p == 0){
+            state->pc = (opcode[2] << 8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xe3: // XTHL
+        {
+          uint8_t temp_low = state->l;
+          uint8_t temp_high = state->h;
+          state->l = state->memory[state->sp];
+          state->memory[state->sp] = temp_low;
+          state->h = state->memory[state->sp+1];
+          state->memory[state->sp+1] = temp_high;
+        } break;
+    case 0xe4: // CPO addr
+        {
+          if (state->cc.p == 0) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
     case 0xe5: // PUSH H
         {
           state->memory[state->sp-1] = state->h;
@@ -2036,10 +2170,35 @@ int Emulator(States *state)
           state->a = x;
           state->pc++;
         } break;
-    case 0xe7: IncompleteInstruction(state); break;
-    case 0xe8: IncompleteInstruction(state); break;
-    case 0xe9: IncompleteInstruction(state); break;
-    case 0xea: IncompleteInstruction(state); break;
+    case 0xe7: // RST 4
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 4;
+        } break;
+    case 0xe8: // RPE
+        {
+          if(state->cc.p == 1){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
+    case 0xe9: // PCHL
+        {
+          state->pc = (state->l) | ((state->h) << 8);
+        } break;
+    case 0xea: // JPO addr
+        {
+          if(state->cc.p == 1){
+            state->pc = (opcode[2] << 8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
     case 0xeb: // XCHG
         {
           uint8_t rh_temp = state->h; // Temp for higher register
@@ -2049,11 +2208,47 @@ int Emulator(States *state)
           state->l = state->e; // Swap L for E
           state->e = rl_temp;
         } break;
-    case 0xec: IncompleteInstruction(state); break;
-    case 0xed: IncompleteInstruction(state); break;
-    case 0xee: IncompleteInstruction(state); break;
-    case 0xef: IncompleteInstruction(state); break;
-    case 0xf0: IncompleteInstruction(state); break;
+    case 0xec: // CPE addr
+        {
+          if (state->cc.p == 1) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xed: break; // NOP
+    case 0xee: // XRI D8
+        {
+          uint8_t answer = state->a ^ opcode[1];
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer & 0x80) == 0x80);
+          state->cc.cy = 0; // Flag cleared
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(answer);
+          state->a = answer;
+          state->pc++;
+        } break;
+    case 0xef: // RST 5
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 5;
+        } break;
+    case 0xf0: // RP
+        {
+          if(state->cc.s == 0){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
     case 0xf1: // POP PSW
         {
           state->a = state->memory[state->sp+1];
@@ -2065,9 +2260,32 @@ int Emulator(States *state)
           state->cc.ac = ((psw & 0x10) == 0x10);
           state->sp += 2;
         } break;
-    case 0xf2: IncompleteInstruction(state); break;
-    case 0xf3: IncompleteInstruction(state); break;
-    case 0xf4: IncompleteInstruction(state); break;
+    case 0xf2: // JP addr
+        {
+          if(state->cc.s == 0){
+            state->pc = (opcode[2] << 8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xf3: // DI
+        {
+          state->int_enable = 0; // Double check
+        } break;
+    case 0xf4: // CP addr
+        {
+          if (state->cc.s == 0) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
     case 0xf5: // PUSH PSW
         {
           state->memory[state->sp-1] = state->a;
@@ -2076,17 +2294,64 @@ int Emulator(States *state)
           state->memory[state->sp-2] = psw;
           state->sp = state->sp - 2;
         } break;
-    case 0xf6: IncompleteInstruction(state); break;
-    case 0xf7: IncompleteInstruction(state); break;
-    case 0xf8: IncompleteInstruction(state); break;
-    case 0xf9: IncompleteInstruction(state); break;
-    case 0xfa: IncompleteInstruction(state); break;
+    case 0xf6: // ORA D8
+        {
+          uint8_t answer = state->a | opcode[1];
+          state->cc.z = (answer == 0);
+          state->cc.s = ((answer & 0x80) == 0x80);
+          state->cc.cy = 0; // Flag cleared
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(answer);
+          state->a = answer;
+          state->pc++;
+        } break;
+    case 0xf7: // RST 6
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 6;
+        } break;
+    case 0xf8: // RM
+        {
+          if(state->cc.s == 1){
+            state->pc = state->memory[state->sp] |
+                            (state->memory[state->sp+1]<<8);
+            state->sp += 2;
+          }
+        } break;
+    case 0xf9: // SPHL
+        {
+          state->sp = ((state->h) << 8) | (state->l);
+        } break;
+    case 0xfa: // JM addr
+        {
+          if(state->cc.s == 1){
+            state->pc = (opcode[2] << 8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
     case 0xfb: // EI
         {
           state->int_enable = 1;
         } break;
-    case 0xfc: IncompleteInstruction(state); break;
-    case 0xfd: IncompleteInstruction(state); break;
+    case 0xfc: // CM addr
+        {
+          if (state->cc.s == 1) {
+            uint16_t ret = state->pc+2;
+            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-2] = (ret & 0xff);
+            state->sp = state->sp - 2;
+            state->pc = (opcode[2]<<8) | opcode[1];
+          }
+          else {
+            state->pc += 2;
+          }
+        } break;
+    case 0xfd: break; // NOP
     case 0xfe: // CPI D8
         {
           uint8_t x = state->a - opcode[1];
@@ -2096,7 +2361,14 @@ int Emulator(States *state)
           state->cc.cy = (state->a < opcode[1]);
           state->pc++;
         } break;
-    case 0xff: IncompleteInstruction(state); break;
+    case 0xff: // RST 7
+        {
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp-1] = (ret >> 8) & 0xff;
+          state->memory[state->sp-2] = (ret & 0xff);
+          state->sp = state->sp - 2;
+          state->pc = 8 * 7;
+        } break;
   }
 
   // Print out condition flag content

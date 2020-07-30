@@ -6,139 +6,35 @@
 
   A complete emulation of all the opcode of the Intel 8080 CPU architecture
 
-  We implement the full Intel 8080 CPU
-  As well as the Space Invader arcade machine
 */
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
+#include "CPU_emulator.h"
 
-
-/* Definitions */
+#define PRINTOPS 0
 
 /*
-  Define the Space Invader ROM files
-
-  invader.h mapped 0000 - 07FF
-  invader.g mapped 0800 - 0FFF
-  invader.f mapped 1000 - 17FF
-  invader.e mapped 1800 - 1FFF 
+  Matrix representing the number of CPU cycles per instruction 
 */
-#define FILE_NAME1 "invaders.h"
-#define FILE_NAME2 "invaders.g"
-#define FILE_NAME3 "invaders.f"
-#define FILE_NAME4 "invaders.e"
-
-
-/* Struct definitions */
-
-/*
-  The Flag register holds 6 flags
-
-  Zero: If the result of an instruction has the value of 0
-        This flag is set; otherwise it is reset
-  Sign: If the most significant bit(MSB) of the result in an operation
-        This flag is set; otherwise it is reset
-  Parity: If the modulo 2 sum of the bits of the result in an operation
-          is 0(even parity), this flag is set; otherwise it is reset(odd parity)
-  Carry: If the instruction resulted in a carry or borrow out of the MSB
-         This flag is set; otherwise it is reset
-  Auxilliary Carry: If the instruction caused a carry out
-                    of bit 3 and into bit 4 of the resulting
-                    value, the auxiliary carry is set; otherwise
-                    it is reset. This flag is affected by single
-                    precision additions, subtractions, increments,
-                    decrements, comparisons, and logical operations,
-                    but is principally used with additions and increments 
-                    preceding a DAA (Decimal Adjust Accumulator) instruction.               
-*/
-typedef struct ConditionFlags {
-  uint8_t z:1; // Zero condition bit
-  uint8_t s:1; // Sign condtion bit
-  uint8_t p:1; // Parity condtion bit
-  uint8_t cy:1; // Carry condtion bit
-  uint8_t ac:1; // Auxiliary carry condtion bit
-  uint8_t pad:3; // Padding bits
-} ConditionFlags;
-
-typedef struct States {
-  uint8_t a; // Accumulator register
-  uint8_t b; // Register B(register pair BC)
-  uint8_t c; // Register C
-  uint8_t d; // Register D(register pair DE)
-  uint8_t e; // Register E
-  uint8_t h; // Register H(register pair HL)
-  uint8_t l; // Register L
-  uint16_t sp; // Stack pointer
-  uint16_t pc; // Program counter
-  uint8_t *memory;
-  struct ConditionFlags cc;
-  uint8_t int_enable; // Enable feature(for particular OpCodes)
-} States;
-
-
-/* Function declarations */
-void IncompleteInstruction(States *state);
-int Parity8b(int x);
-int Parity16b(int x);
-void ReadIntoMemory(States *state, char *filename, uint32_t offset);
-int Disassembler(uint8_t *codebuffer, int pc);
-int Emulator(States *state);
-
-
-int main(int argc, char **argv)
-{
-
-  int EOI = 0; // End Of Instruction
-
-  /* Allocate and initialize memory */
-  States *state = calloc(1, sizeof(States));
-  /* Allocate for 16bits address/64Kbytes */
-  state->memory = malloc(0x10000);
-
-  /*
-    Read Space Invader ROM
-  */
-  ReadIntoMemory(state, FILE_NAME1, 0x0);
-  ReadIntoMemory(state, FILE_NAME2, 0x800);
-  ReadIntoMemory(state, FILE_NAME3, 0x1000);
-  ReadIntoMemory(state, FILE_NAME4, 0x1800);
-
-
-  /*
-    Loop until end of program
-    Or until emulator reads an incomplete instruction
-  */
-  while (!EOI){
-
-    uint8_t opcode = state->memory[state->pc];
-
-    /* 
-      Verifying opcode is an I/O instruction
-      Opcode 0xdb = IN
-      Opcode 0xd3 = OUT
-      Otherwise, proceed to next CPU cycle 
-    */
-    if(*opcode == 0xdb){
-      // IN
-      uint8_t port = opcode[1];
-      state->a = IO_input(state, port);
-      state->pc++;
-    }
-    else if(*opcode == 0xd3){
-      // OUT
-      uint8_t port = opcode[1];
-      IO_output(state, port);
-      state->pc++;
-    }
-    else{
-      Emulator(state);
-    }
-  }
-
-  return 0;
-}
-
+uint8_t CPUcycles[] = {
+  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, //0x00..0x0f
+  4, 10, 7, 5, 5, 5, 7, 4, 4, 10, 7, 5, 5, 5, 7, 4, //0x10..0x1f
+  4, 10, 16, 5, 5, 5, 7, 4, 4, 10, 16, 5, 5, 5, 7, 4, //etc
+  4, 10, 13, 5, 10, 10, 10, 4, 4, 10, 13, 5, 5, 5, 7, 4,
+  
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5, //0x40..0x4f
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+  5, 5, 5, 5, 5, 5, 7, 5, 5, 5, 5, 5, 5, 5, 7, 5,
+  7, 7, 7, 7, 7, 7, 7, 7, 5, 5, 5, 5, 5, 5, 7, 5,
+  
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4, //0x80..8x4f
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  4, 4, 4, 4, 4, 4, 7, 4, 4, 4, 4, 4, 4, 4, 7, 4,
+  
+  11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 10, 17, 7, 11, //0xc0..0xcf
+  11, 10, 10, 10, 17, 11, 7, 11, 11, 10, 10, 10, 10, 17, 7, 11, 
+  11, 10, 10, 18, 17, 11, 7, 11, 11, 5, 10, 5, 17, 17, 7, 11, 
+  11, 10, 10, 4, 17, 11, 7, 11, 11, 5, 10, 4, 17, 17, 7, 11, 
+};
 
 /* Function implementation */
 
@@ -194,38 +90,6 @@ int Parity16b(int x)
   x ^= x >> 1;
   x ^= x >> 2;
   return (~x) & 1;
-}
-
-/*
- * Function:  ReadIntoMemory
- * -------------------------
- *  State machine of emulator
- *  Will read from ROM and store into memory
- *
- *  state: state of Intel8080 machine
- *
- *  returns: void - exits emulation
- */
-void ReadIntoMemory(States *state, char *filename, uint32_t offset)
-{
-  // Open file and verify status
-  FILE *fp = fopen(filename, "rb");
-  if(fp == NULL){
-    printf("Can't open %s\n", filename);
-    exit(EXIT_FAILURE);
-  }
-
-  // Get file size
-  fseek(fp, 0L, SEEK_END);
-  int fsize = ftell(fp);
-
-  // Return to beginning of file to read into memory buffer
-  fseek(fp, 0L, SEEK_SET);
-  uint8_t *buffer = &state->memory[offset];
-
-  // Read file into buffer
-  fread(buffer, fsize, 1, fp);
-  fclose(fp);
 }
 
 /*
@@ -611,7 +475,10 @@ int Disassembler(uint8_t *codebuffer, int pc)
 int Emulator(States *state)
 {
   uint8_t *opcode = &state->memory[state->pc];
-  Disassembler(state->memory, state->pc);
+
+  #if PRINTOPS
+    Disassembler(state->memory, state->pc);
+  #endif
 
   state->pc += 1;
   switch(*opcode)
@@ -630,26 +497,25 @@ int Emulator(States *state)
         } break;
     case 0x03: // INX B
         {
-          uint16_t answer = ( ((state->b) << 8) | (state->c) ) + 1;
-          state->b = (answer >> 8) & 0xff;
-          state->c = answer & 0xff;
+          uint16_t result = ( ((state->b) << 8) | (state->c) ) + 1;
+          state->b = (result >> 8) & 0xff;
+          state->c = result & 0xff;
         } break;
     case 0x04: // INR B
         {
-          uint8_t answer = state->b + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->b = answer;
+          uint8_t result = state->b + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result&0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->b = result;
         } break;
     case 0x05: //DCR B
         {
-          uint8_t answer = state->b - 1;
-          state->cc.z = (answer == 0);// If result is zero, set flag
-          state->cc.s = ((answer & 0x80) == 0x80);// If bit 7 is set, set sign flag
-          state->cc.p = Parity8b(answer);// Parity flag is set if even
-          state->b = answer;
+          uint8_t result = state->b - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->b = result;
         } break;
     case 0x06: // MVI B,D8
         {
@@ -662,16 +528,15 @@ int Emulator(States *state)
           state->a = ((x&0x80) >> 7) | (x << 1);
           state->cc.cy = ((x&0x80) == 0x80);
         }break;
-    case 0x08: break; // NOP
+    case 0x08: IncompleteInstruction(state); break; // NOP
     case 0x09: // DAD B
         {
-          uint32_t rp = ((state->b)<< 8) | (state->c); // set B to MSByte
-          uint32_t hl = ((state->h)<< 8) | (state->l); // set H to MSByte
-          uint32_t answer = hl + rp; // Add HL + BC
-          state->cc.cy = (answer > 0xffff);
-          /* move MSByte to LSByte and clear upper half*/
-          state->h = ( (answer>>8) & 0xff);
-          state->l = (answer & 0xff); // Clear upper half
+          uint32_t rp = ((state->b)<< 8) | (state->c);
+          uint32_t hl = ((state->h)<< 8) | (state->l);
+          uint32_t result = hl + rp; 
+          state->cc.cy = (result > 0xffff);
+          state->h = (result & 0xff00) >> 8;
+          state->l = result & 0xff;
         } break;
     case 0x0a: // LDAX B
         {
@@ -680,26 +545,26 @@ int Emulator(States *state)
         } break;
     case 0x0b: // DCX B
         {
-          uint16_t answer = ( ((state->b) << 8) | (state->c)) - 1;
-          state->b = (answer >> 8) & 0xff;
-          state->c = answer&0xff;
+          uint16_t result = ( ((state->b) << 8) | (state->c)) - 1;
+          state->b = (result & 0xff00) >> 8;
+          state->c = result & 0xff;
         } break;
     case 0x0c: // INR C
         {
-          uint8_t answer = state->c + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
+          uint8_t result = state->c + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
           // state->cc.ac; - unsure
-          state->c = answer;
+          state->c = result;
         } break;
     case 0x0d: // DCR C
         {
-          uint8_t answer = state->c - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->c = answer;
+          uint8_t result = state->c - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->c = result;
         } break;
     case 0x0e: // MVI C,D8
         {
@@ -710,9 +575,9 @@ int Emulator(States *state)
         {
           uint8_t x = state->a;
           state->a = ((x & 1) << 7) | (x >> 1);
-          state->cc.cy = (1 == (x&1));
+          state->cc.cy = ((x & 1) == 1);
         } break;
-    case 0x10: break; // NOP
+    case 0x10: IncompleteInstruction(state); break; // NOP
     case 0x11: // LXI D,D16
         {
           state->e = opcode[1];
@@ -726,26 +591,25 @@ int Emulator(States *state)
         } break;
     case 0x13: // INX D
         {
-          uint16_t answer = ( ((state->d) << 8) | (state->e) ) + 1;
-          state->d = ((answer >> 8) & 0xff);
-          state->e = (answer & 0xff);
+          uint16_t result = ( ((state->d) << 8) | (state->e) ) + 1;
+          state->d = (result & 0xff00) >> 8;
+          state->e = (result & 0xff);
         } break;
     case 0x14: // INR D
         {
-          uint8_t answer = state->d + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->d = answer;
+          uint8_t result = state->d + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->d = result;
         } break;
     case 0x15: // DCR D
         {
-          uint8_t answer = state->d - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->d = answer;
+          uint8_t result = state->d - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->d = result;
         } break;
     case 0x16: // MVI D,D8
         {
@@ -755,18 +619,18 @@ int Emulator(States *state)
     case 0x17: // RAL
         {
           uint8_t x = state->a;
-          state->a = ((state->cc.cy)&0x01) | (x << 1);
-          state->cc.cy = ((x&0x80) == 0x80);
+          state->a = state->cc.cy | (x << 1);
+          state->cc.cy = ((x & 0x80) == 0x80);
         } break;
     case 0x18: break; // NOP
     case 0x19: // DAD D
         {
           uint32_t rp = ((state->d)<< 8) | (state->e);
           uint32_t hl = ((state->h)<< 8) | (state->l);
-          uint32_t answer = hl + rp; // Add HL + DE
-          state->cc.cy = (answer > 0xffff);
-          state->h = ( (answer>>8) & 0xff);
-          state->l = (answer & 0xff);
+          uint32_t result = hl + rp; // Add HL + DE
+          state->cc.cy = (result > 0xffff);
+          state->h = (result & 0xff00) >> 8;
+          state->l = (result & 0xff);
         } break;
     case 0x1a: // LDAX D
         {
@@ -775,26 +639,25 @@ int Emulator(States *state)
         } break;
     case 0x1b: // DCX D
         {
-          uint16_t answer = ( ((state->d) << 8) | (state->e)) - 1;
-          state->d = (answer >> 8) & 0xff;
-          state->e = answer&0xff;
+          uint16_t result = ( ((state->d) << 8) | (state->e)) - 1;
+          state->d = (result & 0xff00) >> 8;
+          state->e = result & 0xff;
         } break;
     case 0x1c: // INR E
         {
-          uint8_t answer = state->e + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->e = answer;
+          uint8_t result = state->e + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->e = result;
         } break;
     case 0x1d: // DCR E
         {
-          uint8_t answer = state->e - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->e = answer;
+          uint8_t result = state->e - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->e = result;
         } break;
     case 0x1e: // MVI E,D8
         {
@@ -805,9 +668,9 @@ int Emulator(States *state)
         {
           uint8_t x = state->a;
           state->a = ((state->cc.cy) << 7) | (x >> 1);
-          state->cc.cy = (1 == (x&1));
+          state->cc.cy = ((x & 1) == 1);
         } break;
-    case 0x20: break; // NOP
+    case 0x20: IncompleteInstruction(state); break; // NOP
     case 0x21: // LXI H,D16
         {
           state->l = opcode[1];
@@ -824,26 +687,25 @@ int Emulator(States *state)
     case 0x23: // INX H
         {
           uint16_t rp = ((state->h) << 8) | (state->l);
-          uint16_t answer = rp + 1;
-          state->h = ((answer >> 8) & 0xff);
-          state->l = (answer & 0xff);
+          uint16_t result = rp + 1;
+          state->h = (result & 0xff00) >> 8;
+          state->l = (result & 0xff);
         } break;
     case 0x24: // INR H
         {
-          uint8_t answer = state->h + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->h = answer;
+          uint8_t result = state->h + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->h = result;
         } break;
     case 0x25: // DCR H
         {
-          uint8_t answer = state->h - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->h = answer;
+          uint8_t result = state->h - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->h = result;
         } break;
     case 0x26: // MVI H,D8
         {
@@ -851,44 +713,43 @@ int Emulator(States *state)
           state->pc++;
         } break;
     case 0x27: IncompleteInstruction(state); break; // DAA
-    case 0x28: break; // NOP
+    case 0x28: IncompleteInstruction(state); break; // NOP
     case 0x29: // DAD H
         {
           uint16_t rp = ((state->h)<< 8) | (state->l);
-          uint16_t answer = rp + rp; // Add HL + HL
-          state->cc.cy = (answer > 0xffff);
-          state->h = ( (answer>>8) & 0xff);
-          state->l = (answer & 0xff);
+          uint16_t result = rp + rp; // Add HL + HL
+          state->cc.cy = (result > 0xffff);
+          state->h = (result & 0xff00) >> 8;
+          state->l = (result & 0xff);
         } break;
     case 0x2a: // LHLD addr
         {
-          uint16_t addr = (opcode[2] << 8)| opcode[1];
+          uint16_t addr = (opcode[2] << 8) | opcode[1];
           state->l = state->memory[addr];
           state->h = state->memory[addr + 1];
           state->pc += 2;
         } break;
     case 0x2b: // DCX H
         {
-          uint16_t answer = ( ((state->h) << 8) | (state->l)) - 1;
-          state->h = (answer >> 8) & 0xff;
-          state->l = answer&0xff;
+          uint16_t result = (((state->h) << 8) | (state->l)) - 1;
+          state->h = (result & 0xff00) >> 8;
+          state->l = result & 0xff;
         } break;
     case 0x2c: // INR L
         {
-          uint8_t answer = state->l + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->l = answer;
+          uint8_t result = state->l + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result&0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->l = result;
         } break;
     case 0x2d: // DCR L
         {
-          uint8_t answer = state->l - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->l = answer;
+          uint8_t result = state->l - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->l = result;
         } break;
     case 0x2e: // MVI L,D8
         {
@@ -899,7 +760,7 @@ int Emulator(States *state)
         {
           state->a = ~state->a;
         } break;
-    case 0x30: break; // NOP
+    case 0x30: IncompleteInstruction(state); break; // NOP
     case 0x31: // LXI SP,D16
         {
           state->sp = ((opcode[2] << 8) | opcode[1]);
@@ -913,25 +774,25 @@ int Emulator(States *state)
         } break;
     case 0x33: // INX SP
         {
-          state->sp = (state->sp) + 1; // Double check(not sure)
+          state->sp = (state->sp) + 1;
         } break;
     case 0x34: // INR M
         {
           uint16_t addrHL = ((state->h) << 8) | (state->l);
-          uint8_t answer = (state->memory[addrHL]) + 1; // Double check
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->memory[addrHL] = answer;
+          uint8_t result = (state->memory[addrHL]) + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->memory[addrHL] = result;
         } break;
     case 0x35: // DCR M
         {
           uint16_t addrHL = ((state->h) << 8) | (state->l);
-          uint8_t answer = (state->memory[addrHL]) - 1; // Double check
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->memory[addrHL] = answer;
+          uint8_t result = (state->memory[addrHL]) - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->memory[addrHL] = result;
         } break;
     case 0x36: // MVI M,D8
         {
@@ -943,18 +804,14 @@ int Emulator(States *state)
         {
           state->cc.cy = 1; // set carry
         } break;
-    case 0x38: break; // NOP
+    case 0x38: IncompleteInstruction(state); break; // NOP
     case 0x39: // DAD SP
-        { // Double check
-          uint8_t sp_low = state->memory[state->sp]; // pop lower byte
-          uint8_t sp_high = state->memory[state->sp+1]; // pop higher byte
-          uint32_t sp_content = (sp_high << 8) | sp_low;
+        { 
           uint32_t hl = ((state->h)<< 8) | (state->l);
-          uint32_t answer = hl + sp_content;
-          state->cc.cy = (answer > 0xffff);
-          /* push back answer into sp locations */
-          state->memory[state->sp+1] = ((answer>>8) & 0xff);
-          state->memory[state->sp] = (answer & 0xff);
+          uint32_t result = hl + state->sp;
+          state->cc.cy = (result > 0xffff);
+          state->h = (result & 0xff00) >> 8;
+          state->l = (result & 0xff);
         } break;
     case 0x3a: // LDA addr
         {
@@ -964,28 +821,23 @@ int Emulator(States *state)
         } break;
     case 0x3b: // DCX SP
         {
-          uint8_t sp_low = state->memory[state->sp]; // pop lower byte
-          uint8_t sp_high = state->memory[state->sp+1]; // pop higher byte
-          uint16_t answer = ((sp_high << 8) | sp_low) - 1;
-          state->memory[state->sp+1] = (answer >> 8) & 0xff;
-          state->memory[state->sp] = answer&0xff;
+          state->sp = (state->sp) - 1;
         } break;
     case 0x3c: // INR A
         {
-          uint8_t answer = state->a + 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer&0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          // state->cc.ac; - unsure
-          state->a = answer;
+          uint8_t result = state->a + 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0x3d: // DCR A
         {
-          uint8_t answer = state->a - 1;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          uint8_t result = state->a - 1;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0x3e: // MVI A,D8
         {
@@ -1227,9 +1079,8 @@ int Emulator(States *state)
     case 0x76:  // HLT
         {
           printf("Halt command has been reached.\t"
-                 "The processor is stopped\t"
+                 "The processor has stopped\t"
                  "The registers and flag are unaffected\n");
-          // exit(EXIT_SUCCESS);
         } break;
     case 0x77: // MOV M,A
         {
@@ -1271,625 +1122,632 @@ int Emulator(States *state)
         } break;
     case 0x80: // ADD B
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->b;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->b;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x81: // ADD C
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->c;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->c;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x82: // ADD D
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->d;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->d;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x83: // ADD E
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->e;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->e;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x84: // ADD H
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->h;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->h;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x85: // ADD L
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->l;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->l;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x86: // ADD M
         {
           uint16_t addr = (state->h<<8) | (state->l);
-          uint16_t answer = (uint16_t)state->a +
+          uint16_t result = (uint16_t)state->a +
                             (uint16_t)state->memory[addr];
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x87: // ADD A
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->a;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->a;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x88: // ADC B
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->b +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->b +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x89: // ADC C
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->c +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->c +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8a:// ADC D
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->d +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->d +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8b: // ADC E
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->e +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->e +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8c: // ADC H
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->h +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->h +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8d:// ADC L
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->l +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->l +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8e: // ADC M
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->memory[addr] +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->memory[addr] +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x8f: // ADC A
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)state->a +
+          uint16_t result = (uint16_t)state->a + (uint16_t)state->a +
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x90: // SUB B
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->b;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->b;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x91: // SUB C
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->c;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->c;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x92: // SUB D
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->d;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->d;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x93: // SUB E
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->b;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->b;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x94: // SUB H
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->h;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->h;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x95: // SUB L
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->l;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->l;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x96: // SUB M
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->memory[addr];
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->memory[addr];
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x97: // SUB A
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->a;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->a;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x98: // SBB B
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->b -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->b -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x99: // SBB C
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->c -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->c -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9a: // SBB D
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->d -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->d -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9b: // SBB E
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->e -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->e -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9c: // SBB H
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->h -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->h -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9d: // SBB L
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->l -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->l -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9e: // SBB M
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->a -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->a -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0x9f: // SBB A
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->a -
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->a -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
         } break;
     case 0xa0: // ANA B
         {
-          uint8_t answer = state->a & state->b;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->b;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa1: // ANA C
         {
-          uint8_t answer = state->a & state->c;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->c;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa2: // ANA D
         {
-          uint8_t answer = state->a & state->d;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->d;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa3: // ANA E
         {
-          uint8_t answer = state->a & state->e;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->e;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa4: // ANA H
         {
-          uint8_t answer = state->a & state->c;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->c;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa5: // ANA H
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint8_t answer = state->a & state->memory[addr];
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->memory[addr];
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa6: // ANA M
         {
-          uint8_t answer = state->a & state->c;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) != 0);
+          uint8_t result = state->a & state->c;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa7: // ANA A
         {
-          uint8_t answer = state->a & state->a;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a & state->a;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.ac = 0; // Flag cleared
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa8: // XRA B
         {
-          uint8_t answer = state->a ^ state->b;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->b;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xa9: // XRA C
         {
-          uint8_t answer = state->a ^ state->c;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->c;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xaa: // XRA D
         {
-          uint8_t answer = state->a ^ state->d;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->d;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xab: // XRA E
         {
-          uint8_t answer = state->a ^ state->e;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->e;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xac: // XRA H
         {
-          uint8_t answer = state->a ^ state->h;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->h;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xad: // XRA L
         {
-          uint8_t answer = state->a ^ state->l;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->l;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0;
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xae: // XRA M
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint8_t answer = state->a ^ state->memory[addr];
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->memory[addr];
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xaf: // XRA A
         {
-          uint8_t answer = state->a ^ state->a;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ state->a;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb0: // ORA B
         {
-          uint8_t answer = state->a | state->b;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->b;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb1: // ORA C
         {
-          uint8_t answer = state->a | state->c;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->c;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb2: // ORA D
         {
-          uint8_t answer = state->a | state->d;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->d;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb3: // ORA E
         {
-          uint8_t answer = state->a | state->e;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->e;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb4: // ORA H
         {
-          uint8_t answer = state->a | state->h;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->h;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb5: // ORA L
         {
-          uint8_t answer = state->a | state->l;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->l;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb6: // ORA M
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint8_t answer = state->a | state->memory[addr];
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->memory[addr];
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb7: // ORA A
         {
-          uint8_t answer = state->a | state->a;
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | state->a;
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
         } break;
     case 0xb8: // CMP B
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->b;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->b) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->b;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff); 
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xb9: // CMP C
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->c;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->c) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->c;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xba: // CMP D
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->d;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->d) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->d;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xbb: // CMP E
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->e;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->e) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->e;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xbc: // CMP H
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->h;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->h) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->h;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xbd:  // CMP L
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->l;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = ((state->a < state->l) ? 1:0); // Double check
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->l;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xbe: // CMP M
         {
           uint16_t addr = ((state->h) << 8)|(state->l);
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->memory[addr];
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          /* Double check */
-          state->cc.cy = ((state->a < state->memory[addr]) ? 1:0);
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->memory[addr];
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xbf: // CMP A
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)state->a;
-          state->cc.z = 1; // A is always equal to A
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = 0; // A is not strictly less than A
-          state->cc.p = Parity16b(answer & 0xff);
+          uint16_t result = (uint16_t)state->a - (uint16_t)state->a;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
         } break;
     case 0xc0: // RNZ
         {
           if(state->cc.z == 0){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
     case 0xc1: // POP B
         {
           state->c = state->memory[state->sp];
-          state->b = state->memory[state->sp+1];
+          state->b = state->memory[state->sp + 1];
           state->sp += 2;
         } break;
     case 0xc2: // JNZ addr
@@ -1903,16 +1761,16 @@ int Emulator(States *state)
         } break;
     case 0xc3: // JMP addr
         {
-          state->pc = (opcode[2]<<8) | opcode[1];
+          state->pc = (opcode[2] << 8) | opcode[1];
         } break;
     case 0xc4: // CNZ addr
         {
           if (state->cc.z == 0) {
             uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
+            state->memory[state->sp-1] = (ret >> 8) & 0xff;
             state->memory[state->sp-2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
@@ -1920,40 +1778,40 @@ int Emulator(States *state)
         } break;
     case 0xc5: // PUSH B
         {
-          state->memory[state->sp-1] = state->b;
-          state->memory[state->sp-2] = state->c;
+          state->memory[state->sp - 1] = state->b;
+          state->memory[state->sp - 2] = state->c;
           state->sp = state->sp - 2;
         } break;
     case 0xc6: // ADI D8
         {
-          uint16_t answer = (uint16_t)state->a + (uint16_t)opcode[1];
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = (uint16_t)state->a + (uint16_t)opcode[1];
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
           state->pc++;
         } break;
     case 0xc7: // RST 0
         {
           uint16_t ret = state->pc + 2;
-          state->memory[state->sp-1] = (ret >> 8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 0;
+          state->pc = 0x0000;
         } break;
     case 0xc8: // RZ
         {
           if(state->cc.z == 1){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
     case 0xc9: // RET
         {
           state->pc = state->memory[state->sp] |
-                          (state->memory[state->sp+1]<<8);
+                          (state->memory[state->sp + 1] << 8);
           state->sp += 2;
         } break;
     case 0xca: // JZ addr
@@ -1965,60 +1823,36 @@ int Emulator(States *state)
             state->pc += 2;
           }
         } break;
-    case 0xcb: break; // NOP
+    case 0xcb: IncompleteInstruction(state); break; // NOP
     case 0xcc: // CZ addr
         {
           if (state->cc.z == 1) {
-            uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
-            state->memory[state->sp-2] = (ret & 0xff);
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+            state->memory[state->sp - 2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
           }
         } break;
     case 0xcd: // CALL addr
-    /*
-      CPU diagnotic test makes call and
-      prints to console with the help of CP/M OS
-    */
-    #ifdef CPUDIAG
-          if ( ((opcode[2] << 8) | opcode[1]) == 5 ){
-            if (state->c == 9){
-              uint16_t addr = (state->d << 8) | (state->e);
-              char *str = &state->memory[addr + 3];
-
-              while(*str != '$'){
-                printf("%c", *str++);
-              }
-              printf("\n");
-            }
-            else if(state->c == 2){
-              printf("Print routine called\n");
-            }
-          }
-          else if( ((opcode[2] << 8) | opcode[1]) == 0){
-              exit(EXIT_SUCCESS);
-          }
-          else
-    #endif
         {
-          uint16_t ret = state->pc+2;
-          state->memory[state->sp-1] = (ret>>8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          uint16_t ret = state->pc + 2;
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = (opcode[2]<<8) | opcode[1];
+          state->pc = (opcode[2] << 8) | opcode[1];
         } break;
     case 0xce: // ACI D8
         {
-          uint16_t answer = state->a + opcode[1] + state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          uint16_t result = state->a + opcode[1] + state->cc.cy;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
           state->pc++; // Double check
         } break;
     case 0xcf: // RST 1
@@ -2027,7 +1861,7 @@ int Emulator(States *state)
           state->memory[state->sp-1] = (ret >> 8) & 0xff;
           state->memory[state->sp-2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 1;
+          state->pc = 0x0008;
         } break;
     case 0xd0: // RNC
         {
@@ -2054,18 +1888,16 @@ int Emulator(States *state)
         } break;
     case 0xd3: // OUT D8
         {
-          // need to verify user manual
-          // state->a
           state->pc++;
         } break;
     case 0xd4: // CNC addr
         {
           if (state->cc.cy == 0) {
-            uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
-            state->memory[state->sp-2] = (ret & 0xff);
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+            state->memory[state->sp - 2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
@@ -2073,37 +1905,37 @@ int Emulator(States *state)
         } break;
     case 0xd5: // PUSH D
         {
-          state->memory[state->sp-1] = state->d;
-          state->memory[state->sp-2] = state->e;
+          state->memory[state->sp - 1] = state->d;
+          state->memory[state->sp - 2] = state->e;
           state->sp = state->sp - 2;
         } break;
     case 0xd6: // SUI D8
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)opcode[1];
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
-          state->pc++; // Double check
+          uint16_t result = (uint16_t)state->a - (uint16_t)opcode[1];
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
+          state->pc++;
         } break;
     case 0xd7: // RST 2
         {
           uint16_t ret = state->pc + 2;
-          state->memory[state->sp-1] = (ret >> 8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 2;
+          state->pc = 0x0010;
         } break;
     case 0xd8: // RC
         {
           if(state->cc.cy == 1){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
-    case 0xd9: break; // NOP
+    case 0xd9: IncompleteInstruction(state); break; // NOP
     case 0xda: // JC addr
         {
           if(state->cc.cy == 1){
@@ -2115,7 +1947,6 @@ int Emulator(States *state)
         } break;
     case 0xdb: // IN D8
         {
-          state->a = opcode[1]; // Double check
           state->pc++;
         } break;
     case 0xdc: // CC addr
@@ -2131,38 +1962,38 @@ int Emulator(States *state)
             state->pc += 2;
           }
         } break;
-    case 0xdd: break; // NOP
+    case 0xdd: IncompleteInstruction(state); break; // NOP
     case 0xde: // SBI D8
         {
-          uint16_t answer = (uint16_t)state->a - (uint16_t)opcode[1] -
+          uint16_t result = (uint16_t)state->a - (uint16_t)opcode[1] -
                             (uint16_t)state->cc.cy;
-          state->cc.z = ((answer & 0xff) == 0);
-          state->cc.s = ((answer & 0x80) != 0);
-          state->cc.cy = (answer > 0xff);
-          state->cc.p = Parity16b(answer & 0xff);
-          state->a = answer & 0xff;
+          state->cc.z = ((result & 0xff) == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
+          state->cc.cy = (result > 0xff);
+          state->cc.p = Parity16b(result & 0xff);
+          state->a = result & 0xff;
           state->pc++; // Double check
         } break;
     case 0xdf: // RST 3
         {
           uint16_t ret = state->pc + 2;
-          state->memory[state->sp-1] = (ret >> 8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 3;
+          state->pc = 0x0018;
         } break;
     case 0xe0: // RPO
         {
           if(state->cc.p == 0){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
     case 0xe1: // POP H
         {
           state->l = state->memory[state->sp];
-          state->h = state->memory[state->sp+1];
+          state->h = state->memory[state->sp + 1];
           state->sp += 2;
         } break;
     case 0xe2: // JPO addr
@@ -2186,11 +2017,11 @@ int Emulator(States *state)
     case 0xe4: // CPO addr
         {
           if (state->cc.p == 0) {
-            uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
-            state->memory[state->sp-2] = (ret & 0xff);
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+            state->memory[state->sp - 2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
@@ -2198,8 +2029,8 @@ int Emulator(States *state)
         } break;
     case 0xe5: // PUSH H
         {
-          state->memory[state->sp-1] = state->h;
-          state->memory[state->sp-2] = state->l;
+          state->memory[state->sp - 1] = state->h;
+          state->memory[state->sp - 2] = state->l;
           state->sp = state->sp - 2;
         } break;
     case 0xe6: // ANI D8
@@ -2219,13 +2050,13 @@ int Emulator(States *state)
           state->memory[state->sp-1] = (ret >> 8) & 0xff;
           state->memory[state->sp-2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 4;
+          state->pc = 0x0020;
         } break;
     case 0xe8: // RPE
         {
           if(state->cc.p == 1){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
@@ -2254,11 +2085,11 @@ int Emulator(States *state)
     case 0xec: // CPE addr
         {
           if (state->cc.p == 1) {
-            uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
-            state->memory[state->sp-2] = (ret & 0xff);
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+            state->memory[state->sp - 2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
@@ -2267,28 +2098,28 @@ int Emulator(States *state)
     case 0xed: break; // NOP
     case 0xee: // XRI D8
         {
-          uint8_t answer = state->a ^ opcode[1];
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a ^ opcode[1];
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
           state->pc++;
         } break;
     case 0xef: // RST 5
         {
           uint16_t ret = state->pc + 2;
-          state->memory[state->sp-1] = (ret >> 8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 5;
+          state->pc = 0x0028;
         } break;
     case 0xf0: // RP
         {
           if(state->cc.s == 0){
             state->pc = state->memory[state->sp] |
-                            (state->memory[state->sp+1]<<8);
+                            (state->memory[state->sp + 1] << 8);
             state->sp += 2;
           }
         } break;
@@ -2339,13 +2170,13 @@ int Emulator(States *state)
         } break;
     case 0xf6: // ORA D8
         {
-          uint8_t answer = state->a | opcode[1];
-          state->cc.z = (answer == 0);
-          state->cc.s = ((answer & 0x80) == 0x80);
+          uint8_t result = state->a | opcode[1];
+          state->cc.z = (result == 0);
+          state->cc.s = ((result & 0x80) == 0x80);
           state->cc.cy = 0; // Flag cleared
           state->cc.ac = 0; // Flag cleared
-          state->cc.p = Parity8b(answer);
-          state->a = answer;
+          state->cc.p = Parity8b(result);
+          state->a = result;
           state->pc++;
         } break;
     case 0xf7: // RST 6
@@ -2354,7 +2185,7 @@ int Emulator(States *state)
           state->memory[state->sp-1] = (ret >> 8) & 0xff;
           state->memory[state->sp-2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 6;
+          state->pc = 0x0030;
         } break;
     case 0xf8: // RM
         {
@@ -2384,17 +2215,17 @@ int Emulator(States *state)
     case 0xfc: // CM addr
         {
           if (state->cc.s == 1) {
-            uint16_t ret = state->pc+2;
-            state->memory[state->sp-1] = (ret>>8) & 0xff;
-            state->memory[state->sp-2] = (ret & 0xff);
+            uint16_t ret = state->pc + 2;
+            state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+            state->memory[state->sp - 2] = (ret & 0xff);
             state->sp = state->sp - 2;
-            state->pc = (opcode[2]<<8) | opcode[1];
+            state->pc = (opcode[2] << 8) | opcode[1];
           }
           else {
             state->pc += 2;
           }
         } break;
-    case 0xfd: break; // NOP
+    case 0xfd: IncompleteInstruction(state); break; // NOP
     case 0xfe: // CPI D8
         {
           uint8_t x = state->a - opcode[1];
@@ -2407,13 +2238,14 @@ int Emulator(States *state)
     case 0xff: // RST 7
         {
           uint16_t ret = state->pc + 2;
-          state->memory[state->sp-1] = (ret >> 8) & 0xff;
-          state->memory[state->sp-2] = (ret & 0xff);
+          state->memory[state->sp - 1] = (ret >> 8) & 0xff;
+          state->memory[state->sp - 2] = (ret & 0xff);
           state->sp = state->sp - 2;
-          state->pc = 8 * 7;
+          state->pc = 0x0038;
         } break;
   }
 
+#if PRINTOPS
   // Print out condition flag content
   printf("C = %d\t"    "P = %d\t"   "S = %d\t"   "Z = %d\n",
          state->cc.cy, state->cc.p, state->cc.s, state->cc.z);
@@ -2434,6 +2266,7 @@ int Emulator(States *state)
          state->h,
          state->l,
          state->sp);
+#endif
 
-  return 0;
+  return CPUcycles[*opcode];
 }

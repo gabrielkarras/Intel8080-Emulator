@@ -9,13 +9,13 @@
   We perform CPU diagnostic test to verify the validity of every opcode
   The test is part of binary file named cpudiag.bin
 */
+#include<iostream>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 
 
 /* Definitions */
-#define FILE_NAME "cpudiag.bin"
 
 
 /* Struct definitions */
@@ -59,15 +59,15 @@ int main(int argc, char **argv)
   int EOI = 0; // End Of Instruction
 
   /* Allocate and initialize memory */
-  States *state = calloc(1, sizeof(States));
+  States *state = static_cast<States*>(calloc(1, sizeof(States)));
   /* Allocate for 16bits address/64Kbytes */
-  state->memory = malloc(0x10000);
+  state->memory = static_cast<uint8_t*>(malloc(0x10000));
 
   /*
     Read cpudiag binary starting from 0x100
     Avoids the instruction 'JMP $0100'
   */
-  ReadIntoMemory(state, FILE_NAME, 0x100);
+  ReadIntoMemory(state, (char*)("cpudiag.bin"), 0x100);
 
   /* Fix 'JMP 0x100' instruction */
   state->memory[0] = 0xc3;
